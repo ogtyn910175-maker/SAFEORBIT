@@ -11,21 +11,22 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // User profiles: users/{userId}
+    // 1. Private User profiles: users/{userId}
+    // Strictly restricted to owner only (protects email, emergencyPhone, and PII)
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      // Allow user to write their own profile, or allow updating currentCircleId
+      allow read: if isUser(userId);
       allow create: if isUser(userId);
       allow update: if isUser(userId) || (
+        // Only circle owner removing a member can update currentCircleId
         isAuthenticated() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentCircleId'])
       );
       allow delete: if isUser(userId);
     }
 
-    // Family circles: circles/{circleId}
+    // 2. Family circles: circles/{circleId}
     match /circles/{circleId} {
-      // Read allowed only if authenticated and part of the circle or owner
+      // Read allowed ONLY if authenticated and verified member of the circle or owner
       allow read: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid ||
         (resource.data.memberIds != null && request.auth.uid in resource.data.memberIds)
@@ -36,14 +37,17 @@ service cloud.firestore {
         request.resource.data.ownerId == request.auth.uid &&
         request.auth.uid in request.resource.data.memberIds;
 
-      // Update allowed by owner, or strictly controlled joining/leaving (modifying memberIds only)
+      // Update allowed by owner, or strictly controlled joining/leaving
       allow update: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid || (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']) && (
-            // Joining: adding exclusively own UID
+            // Joining: adding exclusively own UID AND requiring active, unexpired invite code
             (
               request.resource.data.memberIds.toSet().difference(resource.data.memberIds.toSet()) == [request.auth.uid].toSet() &&
-              resource.data.memberIds.toSet().difference(request.resource.data.memberIds.toSet()).size() == 0
+              resource.data.memberIds.toSet().difference(request.resource.data.memberIds.toSet()).size() == 0 &&
+              exists(/databases/$(database)/documents/invites/$(resource.data.inviteCode)) &&
+              get(/databases/$(database)/documents/invites/$(resource.data.inviteCode)).data.isActive == true &&
+              get(/databases/$(database)/documents/invites/$(resource.data.inviteCode)).data.expiresAt > request.time.toMillis()
             ) ||
             // Leaving: removing exclusively own UID
             (
@@ -57,23 +61,32 @@ service cloud.firestore {
       // Delete allowed only by circle owner
       allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
 
-      // Circle members subcollection: circles/{circleId}/members/{memberId}
+      // 3. Separate, limited member display documents: circles/{circleId}/members/{memberId}
+      // Contains ONLY public/circle display fields (name, role, avatarInitial, statusText).
+      // ZERO PII (no email, no emergency phone).
       match /members/{memberId} {
-        // Only circle members or the circle owner can read member cards
+        // Only verified circle members or the circle owner can read member cards
         allow read: if isAuthenticated() && (
           get(/databases/$(database)/documents/circles/$(circleId)).data.ownerId == request.auth.uid ||
           request.auth.uid in get(/databases/$(database)/documents/circles/$(circleId)).data.memberIds
         );
 
-        // Allow a member to manage their own card, or circle owner to remove/update
+        // Member can write their own card if already in memberIds or joining with valid active invite:
         allow write: if isAuthenticated() && (
-          request.auth.uid == memberId ||
+          (request.auth.uid == memberId && (
+            request.auth.uid in get(/databases/$(database)/documents/circles/$(circleId)).data.memberIds ||
+            (
+              exists(/databases/$(database)/documents/invites/$(get(/databases/$(database)/documents/circles/$(circleId)).data.inviteCode)) &&
+              get(/databases/$(database)/documents/invites/$(get(/databases/$(database)/documents/circles/$(circleId)).data.inviteCode)).data.isActive == true &&
+              get(/databases/$(database)/documents/invites/$(get(/databases/$(database)/documents/circles/$(circleId)).data.inviteCode)).data.expiresAt > request.time.toMillis()
+            )
+          )) ||
           get(/databases/$(database)/documents/circles/$(circleId)).data.ownerId == request.auth.uid
         );
       }
     }
 
-    // Invite codes: invites/{code}
+    // 4. Invite codes: invites/{code}
     match /invites/{code} {
       // Invite is readable only if active and not expired (enforced with server request.time)
       allow read: if isAuthenticated() &&

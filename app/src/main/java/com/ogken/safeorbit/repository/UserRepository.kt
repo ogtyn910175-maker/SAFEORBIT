@@ -86,6 +86,25 @@ class FirebaseUserRepository(
             )
 
             userRef.set(updated.toMap()).await()
+
+            // Synchronize limited display fields (no email, no emergency phone) to active circle
+            val circleId = existing.currentCircleId
+            if (!circleId.isNullOrBlank()) {
+                try {
+                    firestore.collection("circles").document(circleId)
+                        .collection("members").document(uid)
+                        .update(
+                            mapOf(
+                                "name" to trimmedName,
+                                "role" to updated.role,
+                                "avatarInitial" to updated.avatarInitial
+                            )
+                        ).await()
+                } catch (_: Exception) {
+                    // Non-blocking if circle record has not yet been initialized
+                }
+            }
+
             Result.success(updated)
         } catch (e: Exception) {
             Result.failure(e)
