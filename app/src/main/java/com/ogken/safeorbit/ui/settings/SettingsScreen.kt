@@ -62,6 +62,7 @@ import com.ogken.safeorbit.theme.SafeOrbitNavy
 import com.ogken.safeorbit.theme.SafeOrbitNavyLight
 import com.ogken.safeorbit.theme.SafeOrbitSecondaryText
 import com.ogken.safeorbit.theme.SafeOrbitStatusOff
+import com.ogken.safeorbit.theme.SafeOrbitStatusOffText
 import com.ogken.safeorbit.theme.SafeOrbitSurface
 import com.ogken.safeorbit.theme.SafeOrbitTeal
 import com.ogken.safeorbit.theme.SafeOrbitWhite
