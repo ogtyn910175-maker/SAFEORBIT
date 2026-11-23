@@ -1,6 +1,7 @@
 package com.ogken.safeorbit.ui.components
 
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -75,7 +76,7 @@ private const val TAG = "SafeOrbitMap"
  * 2. Uses OpenStreetMap HTTPS raster tiles: https://tile.openstreetmap.org/{z}/{x}/{y}.png
  * 3. Clear, readable, permanent attribution: © OpenStreetMap contributors
  * 4. Identifiable SafeOrbit User-Agent and caching headers respected via OkHttp.
- * 5. Crash-proof Compose integration (zero infinite recomposition loops).
+ * 5. Crash-proof Compose integration (zero infinite recomposition loops, stable lifecycle).
  * 6. Location markers only displayed for authorized circle members with active sharing consent.
  * 7. Graceful offline/hardware fallback ensuring the app never crashes or closes.
  */
@@ -89,16 +90,68 @@ fun SafeOrbitMap(
     userLatitude: Double? = null,
     userLongitude: Double? = null
 ) {
+    val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     var mapLibreMapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
     var isStyleReady by remember { mutableStateOf(false) }
     var tileLoadError by remember { mutableStateOf(false) }
     var mapInitError by remember { mutableStateOf(false) }
-    var mapViewInstance by remember { mutableStateOf<MapView?>(null) }
+
+    // Remember the MapView instance stably across recompositions
+    val mapView = remember {
+        try {
+            MapView(context).apply {
+                onCreate(null)
+                // Prevent vertical scroll gesture competition when user pans or zooms map
+                setOnTouchListener { view, event ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                            view.parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            view.parent?.requestDisallowInterceptTouchEvent(false)
+                        }
+                    }
+                    false
+                }
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "MapView instantiation fallback: ${t.message}", t)
+            mapInitError = true
+            null
+        }
+    }
+
+    // Safely bind MapView lifecycle strictly to Lifecycle (NOT re-triggered by state updates)
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            try {
+                when (event) {
+                    Lifecycle.Event.ON_START -> mapView?.onStart()
+                    Lifecycle.Event.ON_RESUME -> mapView?.onResume()
+                    Lifecycle.Event.ON_PAUSE -> mapView?.onPause()
+                    Lifecycle.Event.ON_STOP -> mapView?.onStop()
+                    Lifecycle.Event.ON_DESTROY -> mapView?.onDestroy()
+                    else -> {}
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "MapView lifecycle event ${event.name} warning: ${t.message}")
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            try {
+                mapView?.onDestroy()
+            } catch (t: Throwable) {
+                Log.w(TAG, "MapView onDestroy warning: ${t.message}")
+            }
+        }
+    }
 
     // If native MapLibre initialization failed on this device, fall back safely to Radar view
-    if (mapInitError) {
+    if (mapInitError || mapView == null) {
         Column(
             modifier = modifier
                 .fillMaxWidth()
@@ -126,34 +179,6 @@ fun SafeOrbitMap(
             }
         }
         return
-    }
-
-    // Safely handle MapView lifecycle events
-    DisposableEffect(lifecycle, mapViewInstance) {
-        val currentMapView = mapViewInstance
-        val observer = LifecycleEventObserver { _, event ->
-            try {
-                when (event) {
-                    Lifecycle.Event.ON_START -> currentMapView?.onStart()
-                    Lifecycle.Event.ON_RESUME -> currentMapView?.onResume()
-                    Lifecycle.Event.ON_PAUSE -> currentMapView?.onPause()
-                    Lifecycle.Event.ON_STOP -> currentMapView?.onStop()
-                    Lifecycle.Event.ON_DESTROY -> currentMapView?.onDestroy()
-                    else -> {}
-                }
-            } catch (t: Throwable) {
-                Log.w(TAG, "MapView lifecycle event ${event.name} warning: ${t.message}")
-            }
-        }
-        lifecycle.addObserver(observer)
-        onDispose {
-            lifecycle.removeObserver(observer)
-            try {
-                currentMapView?.onDestroy()
-            } catch (t: Throwable) {
-                Log.w(TAG, "MapView onDestroy warning: ${t.message}")
-            }
-        }
     }
 
     // Synchronize markers only when style is fully loaded and map instance exists
@@ -206,40 +231,31 @@ fun SafeOrbitMap(
         // MapLibre Native View via AndroidView
         // Factory runs ONCE; update is empty to prevent infinite recomposition loops!
         AndroidView(
-            factory = { context ->
-                try {
-                    MapView(context).apply {
-                        onCreate(null)
-                        mapViewInstance = this
+            factory = {
+                mapView.apply {
+                    getMapAsync { map ->
+                        mapLibreMapInstance = map
 
-                        getMapAsync { map ->
-                            mapLibreMapInstance = map
+                        try {
+                            val initialLat = userLatitude ?: 20.5937
+                            val initialLng = userLongitude ?: 78.9629
+                            val initialZoom = if (userLatitude != null) 12.0 else 4.0
 
-                            try {
-                                val initialLat = userLatitude ?: 20.5937
-                                val initialLng = userLongitude ?: 78.9629
-                                val initialZoom = if (userLatitude != null) 12.0 else 4.0
+                            map.cameraPosition = CameraPosition.Builder()
+                                .target(LatLng(initialLat, initialLng))
+                                .zoom(initialZoom)
+                                .build()
 
-                                map.cameraPosition = CameraPosition.Builder()
-                                    .target(LatLng(initialLat, initialLng))
-                                    .zoom(initialZoom)
-                                    .build()
-
-                                val styleJson = MapTileConfig.createStyleJson()
-                                map.setStyle(Style.Builder().fromJson(styleJson)) {
-                                    isStyleReady = true
-                                    tileLoadError = false
-                                }
-                            } catch (t: Throwable) {
-                                Log.w(TAG, "Map style setup error: ${t.message}")
-                                tileLoadError = true
+                            val styleJson = MapTileConfig.createStyleJson()
+                            map.setStyle(Style.Builder().fromJson(styleJson)) {
+                                isStyleReady = true
+                                tileLoadError = false
                             }
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "Map style setup error: ${t.message}")
+                            tileLoadError = true
                         }
                     }
-                } catch (t: Throwable) {
-                    Log.e(TAG, "Failed to instantiate MapView on this device: ${t.message}", t)
-                    mapInitError = true
-                    View(context)
                 }
             },
             update = {

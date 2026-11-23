@@ -32,7 +32,7 @@ object MapTileConfig {
         minZoom = 0,
         maxZoom = 19,
         attribution = "© OpenStreetMap contributors",
-        userAgent = "SafeOrbit/1.1.0 (Android; com.ogken.safeorbit; contact: support@safeorbit.com)"
+        userAgent = "SafeOrbit/1.1.1 (Android; com.ogken.safeorbit)"
     )
 
     /**
