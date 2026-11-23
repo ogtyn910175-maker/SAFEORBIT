@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -99,18 +100,20 @@ fun HomeScreen(
     ) { permissions ->
         val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
         val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        viewModel.onPermissionResult(fineGranted, coarseGranted)
+        viewModel.onPermissionResult(context, fineGranted, coarseGranted)
     }
 
     // Launch permission dialog when user acknowledges consent
     LaunchedEffect(uiState.shouldRequestPermission) {
         if (uiState.shouldRequestPermission) {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
+            val permissions = mutableListOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
             )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            permissionLauncher.launch(permissions.toTypedArray())
         }
     }
 
@@ -181,7 +184,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(SafeOrbitStatusOff.copy(alpha = 0.2f))
-                                .clickable { viewModel.stopSharing() }
+                                .clickable { viewModel.stopSharing(context) }
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -274,7 +277,7 @@ fun HomeScreen(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "Stage 4A",
+                        text = "Stage 4B",
                         style = MaterialTheme.typography.labelSmall,
                         color = SafeOrbitMint,
                         fontWeight = FontWeight.Bold
@@ -284,12 +287,12 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // ── STAGE 4A: Dedicated Location Sharing & Consent Section ──
+            // ── STAGE 4B: Dedicated Location Sharing & Consent Section ──
             LocationSharingSection(
                 sharingState = uiState.sharingState,
                 circleName = if (uiState.circleName.isNotBlank()) uiState.circleName else "No Active Circle",
                 onStartSharingClick = { viewModel.requestStartSharing(context) },
-                onStopSharingClick = { viewModel.stopSharing() },
+                onStopSharingClick = { viewModel.stopSharing(context) },
                 onJoinOrCreateCircleClick = onNavigateToJoinCircle,
                 onOpenAppSettings = {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {

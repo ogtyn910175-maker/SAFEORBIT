@@ -532,4 +532,140 @@ describe('SafeOrbit Firestore Security & Privacy Rules Audit', () => {
       );
     });
   });
+
+  // ──────────────────────────────────────────────────────────
+  // 7. REAL LOCATION PUBLISHING & BOUNDARY ENFORCEMENT
+  // ──────────────────────────────────────────────────────────
+  describe('7. Real Location Publishing & Circle Boundary Security', () => {
+    const locCircleId = 'circle_loc_test';
+
+    before(async () => {
+      const owner = testEnv.authenticatedContext('loc_owner').firestore();
+      await owner.collection('circles').doc(locCircleId).set({
+        id: locCircleId,
+        name: 'Location Test Circle',
+        ownerId: 'loc_owner',
+        inviteCode: 'SO-LOC-TEST',
+        memberIds: ['loc_owner', 'loc_member', 'loc_inactive']
+      });
+
+      // Set member card for loc_member with isSharingActive = true
+      await owner.collection('circles').doc(locCircleId)
+        .collection('members').doc('loc_member').set({
+          id: 'loc_member',
+          userId: 'loc_member',
+          name: 'Sharing Member',
+          role: 'Member',
+          avatarInitial: 'S',
+          isSharingActive: true
+        });
+
+      // Set member card for loc_inactive with isSharingActive = false
+      await owner.collection('circles').doc(locCircleId)
+        .collection('members').doc('loc_inactive').set({
+          id: 'loc_inactive',
+          userId: 'loc_inactive',
+          name: 'Inactive Member',
+          role: 'Member',
+          avatarInitial: 'I',
+          isSharingActive: false
+        });
+    });
+
+    it('allows confirmed member with active sharing to publish their own location', async () => {
+      const member = testEnv.authenticatedContext('loc_member').firestore();
+      await assertSucceeds(
+        member.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').set({
+            userId: 'loc_member',
+            circleId: locCircleId,
+            latitude: 37.7749,
+            longitude: -122.4194,
+            accuracy: 12.5,
+            isLive: true,
+            isApproximate: false,
+            timestamp: Date.now(),
+            batteryPercent: 88
+          })
+      );
+    });
+
+    it('allows circle members to read other members published locations', async () => {
+      const owner = testEnv.authenticatedContext('loc_owner').firestore();
+      await assertSucceeds(
+        owner.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').get()
+      );
+    });
+
+    it('denies outsider from reading published circle locations', async () => {
+      const outsider = testEnv.authenticatedContext('loc_outsider').firestore();
+      await assertFails(
+        outsider.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').get()
+      );
+    });
+
+    it('denies user from writing another members location', async () => {
+      const owner = testEnv.authenticatedContext('loc_owner').firestore();
+      await assertFails(
+        owner.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').set({
+            userId: 'loc_member',
+            circleId: locCircleId,
+            latitude: 37.7749,
+            longitude: -122.4194,
+            accuracy: 10.0,
+            isLive: true,
+            isApproximate: false,
+            timestamp: Date.now(),
+            batteryPercent: 88
+          })
+      );
+    });
+
+    it('denies publishing location if member card isSharingActive is false', async () => {
+      const inactive = testEnv.authenticatedContext('loc_inactive').firestore();
+      await assertFails(
+        inactive.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_inactive').set({
+            userId: 'loc_inactive',
+            circleId: locCircleId,
+            latitude: 37.7749,
+            longitude: -122.4194,
+            accuracy: 15.0,
+            isLive: true,
+            isApproximate: false,
+            timestamp: Date.now(),
+            batteryPercent: 75
+          })
+      );
+    });
+
+    it('denies publishing location with invalid coordinates (out of range latitude)', async () => {
+      const member = testEnv.authenticatedContext('loc_member').firestore();
+      await assertFails(
+        member.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').set({
+            userId: 'loc_member',
+            circleId: locCircleId,
+            latitude: 999.0, // Invalid latitude > 90.0
+            longitude: -122.4194,
+            accuracy: 10.0,
+            isLive: true,
+            isApproximate: false,
+            timestamp: Date.now(),
+            batteryPercent: 88
+          })
+      );
+    });
+
+    it('allows member to delete their location document when stopping sharing', async () => {
+      const member = testEnv.authenticatedContext('loc_member').firestore();
+      await assertSucceeds(
+        member.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').delete()
+      );
+    });
+  });
 });

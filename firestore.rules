@@ -161,10 +161,54 @@ service cloud.firestore {
           get(/databases/$(database)/documents/circles/$(circleId)).data.ownerId == request.auth.uid
         );
       }
+
+      // ──────────────────────────────────────────────────────────
+      // 4. Live Circle Member Locations: /circles/{circleId}/locations/{userId}
+      // Strictly user-published, member-only visibility, bounds validated
+      // ──────────────────────────────────────────────────────────
+      match /locations/{userId} {
+        // Read restricted to circle members and owner
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/circles/$(circleId)).data.ownerId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/circles/$(circleId)).data.memberIds
+        );
+
+        // Publish: user can ONLY create or update their own location document
+        // Location writes require valid bounds and active sharing status on their member card
+        allow create, update: if isAuthenticated() &&
+          request.auth.uid == userId &&
+          (
+            get(/databases/$(database)/documents/circles/$(circleId)).data.ownerId == request.auth.uid ||
+            request.auth.uid in get(/databases/$(database)/documents/circles/$(circleId)).data.memberIds
+          ) &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.circleId == circleId &&
+          request.resource.data.latitude is number &&
+          request.resource.data.latitude >= -90.0 && request.resource.data.latitude <= 90.0 &&
+          request.resource.data.longitude is number &&
+          request.resource.data.longitude >= -180.0 && request.resource.data.longitude <= 180.0 &&
+          request.resource.data.accuracy is number &&
+          request.resource.data.accuracy >= 0.0 &&
+          request.resource.data.isLive is bool &&
+          request.resource.data.timestamp is number &&
+          request.resource.data.timestamp <= request.time.toMillis() + 60000 &&
+          request.resource.data.timestamp >= request.time.toMillis() - 300000 &&
+          (
+            // When marking live coordinates, active sharing status on member card is required
+            request.resource.data.isLive == false ||
+            (
+              exists(/databases/$(database)/documents/circles/$(circleId)/members/$(userId)) &&
+              get(/databases/$(database)/documents/circles/$(circleId)/members/$(userId)).data.isSharingActive == true
+            )
+          );
+
+        // Delete allowed by the member themselves when stopping sharing
+        allow delete: if isAuthenticated() && request.auth.uid == userId;
+      }
     }
 
     // ──────────────────────────────────────────────────────────
-    // 4. Invite Codes: /invites/{code}
+    // 5. Invite Codes: /invites/{code}
     // ──────────────────────────────────────────────────────────
     match /invites/{code} {
       // Readable ONLY if active and not expired (enforced with server request.time)

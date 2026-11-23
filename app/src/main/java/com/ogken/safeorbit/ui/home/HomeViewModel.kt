@@ -14,6 +14,7 @@ import com.ogken.safeorbit.repository.FirebaseUserRepository
 import com.ogken.safeorbit.repository.InMemoryLocationSharingRepository
 import com.ogken.safeorbit.repository.LocationSharingRepository
 import com.ogken.safeorbit.repository.UserRepository
+import com.ogken.safeorbit.service.LocationSharingService
 import com.ogken.safeorbit.util.LocationSystemStateHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.update
 
 data class HomeUiState(
     val user: User = User(),
+    val circleId: String = "",
     val circleName: String = "",
     val inviteCode: String = "",
     val members: List<CircleMember> = emptyList(),
@@ -58,6 +60,7 @@ class HomeViewModel(
             locationSharingRepository.updateCircleInfo(hasCircle = hasCircle, circleName = circle.name)
             _uiState.update {
                 it.copy(
+                    circleId = circle.id,
                     circleName = circle.name,
                     inviteCode = circle.inviteCode,
                     members = circle.members
@@ -119,6 +122,7 @@ class HomeViewModel(
             // Permission already granted; activate sharing immediately
             locationSharingRepository.updatePermissionStatus(currentPerm)
             locationSharingRepository.startSharingWithConsent(consentAcknowledged = true)
+            LocationSharingService.start(context, _uiState.value.circleId, _uiState.value.circleName)
             val permLabel = if (currentPerm == LocationPermissionStatus.PRECISE_GRANTED) "Precise" else "Approximate"
             _uiState.update { it.copy(userFeedbackMessage = "Location sharing started ($permLabel location).") }
         } else {
@@ -130,7 +134,7 @@ class HomeViewModel(
     /**
      * Handles the outcome of the Android runtime permission launcher.
      */
-    fun onPermissionResult(fineGranted: Boolean, coarseGranted: Boolean) {
+    fun onPermissionResult(context: Context, fineGranted: Boolean, coarseGranted: Boolean) {
         _uiState.update { it.copy(shouldRequestPermission = false) }
 
         val status = when {
@@ -144,6 +148,7 @@ class HomeViewModel(
         if (status == LocationPermissionStatus.PRECISE_GRANTED || status == LocationPermissionStatus.APPROXIMATE_GRANTED) {
             val res = locationSharingRepository.startSharingWithConsent(consentAcknowledged = true)
             if (res.isSuccess) {
+                LocationSharingService.start(context, _uiState.value.circleId, _uiState.value.circleName)
                 val mode = if (status == LocationPermissionStatus.PRECISE_GRANTED) "Precise" else "Approximate"
                 _uiState.update { it.copy(userFeedbackMessage = "Location sharing activated ($mode).") }
             } else {
@@ -157,8 +162,32 @@ class HomeViewModel(
     }
 
     /**
-     * User stops sharing. Always accessible and immediately terminates sharing.
+     * Overload for unit tests without Context.
      */
+    fun onPermissionResult(fineGranted: Boolean, coarseGranted: Boolean) {
+        _uiState.update { it.copy(shouldRequestPermission = false) }
+        val status = when {
+            fineGranted -> LocationPermissionStatus.PRECISE_GRANTED
+            coarseGranted -> LocationPermissionStatus.APPROXIMATE_GRANTED
+            else -> LocationPermissionStatus.DENIED
+        }
+        locationSharingRepository.updatePermissionStatus(status)
+        if (status == LocationPermissionStatus.PRECISE_GRANTED || status == LocationPermissionStatus.APPROXIMATE_GRANTED) {
+            locationSharingRepository.startSharingWithConsent(consentAcknowledged = true)
+        }
+    }
+
+    /**
+     * User stops sharing. Always accessible and immediately terminates sharing and foreground service.
+     */
+    fun stopSharing(context: Context) {
+        LocationSharingService.stop(context)
+        locationSharingRepository.stopSharing()
+        _uiState.update {
+            it.copy(userFeedbackMessage = "Location sharing is OFF. Your location is completely private.")
+        }
+    }
+
     fun stopSharing() {
         locationSharingRepository.stopSharing()
         _uiState.update {

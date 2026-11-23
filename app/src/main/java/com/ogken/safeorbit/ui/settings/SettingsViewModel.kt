@@ -1,5 +1,6 @@
 package com.ogken.safeorbit.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ogken.safeorbit.model.LocationSharingState
@@ -10,6 +11,7 @@ import com.ogken.safeorbit.repository.FirebaseUserRepository
 import com.ogken.safeorbit.repository.InMemoryLocationSharingRepository
 import com.ogken.safeorbit.repository.LocationSharingRepository
 import com.ogken.safeorbit.repository.UserRepository
+import com.ogken.safeorbit.service.LocationSharingService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,7 +61,8 @@ class SettingsViewModel(
         }
     }
 
-    fun disableSharing() {
+    fun disableSharing(context: Context? = null) {
+        context?.let { LocationSharingService.stop(it) }
         locationSharingRepository.toggleSharingWithConsent(consentAcknowledged = true, enable = false)
         _uiState.update {
             it.copy(
