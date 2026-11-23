@@ -34,10 +34,12 @@ jobs:
           echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
 
       - name: Configure Google Services for Build
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
             echo "Injecting GOOGLE_SERVICES_JSON from GitHub Secrets..."
-            echo "${{ secrets.GOOGLE_SERVICES_JSON }}" > app/google-services.json
+            printf '%s\n' "$GOOGLE_SERVICES_JSON" > app/google-services.json
           elif [ ! -f "app/google-services.json" ]; then
             echo "Generating CI build configuration for com.ogken.safeorbit..."
             cat << 'EOF' > app/google-services.json
