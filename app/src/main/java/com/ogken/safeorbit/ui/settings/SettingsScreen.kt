@@ -216,13 +216,13 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = if (uiState.sharingState.isSharingActive) "Sharing Active (Simulation)" else "Location Sharing: OFF",
+                                    text = uiState.sharingState.statusBadgeText,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = if (uiState.sharingState.isSharingActive) SafeOrbitTeal else SafeOrbitWhite
                                 )
                                 Text(
-                                    text = if (uiState.sharingState.isSharingActive) "Testing Mode • GPS Offline" else "Default Private State",
+                                    text = if (uiState.sharingState.isSharingActive) "Active with Family Circle Consent" else "Default Private State • No Tracking",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = SafeOrbitSecondaryText
                                 )
@@ -250,7 +250,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Consent Policy: SafeOrbit strictly enforces voluntary location sharing. In Stage 2, sensors are inactive. In Stage 3, coordinates will only transmit when enabled knowingly.",
+                        text = "Consent Policy: SafeOrbit strictly enforces voluntary location sharing. In Stage 4A, permission flows and transparent controls are active. No hidden background tracking occurs.",
                         style = MaterialTheme.typography.bodySmall,
                         color = SafeOrbitSecondaryText
                     )
