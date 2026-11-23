@@ -55,7 +55,7 @@ describe('SafeOrbit Firestore Security & Privacy Rules Audit', () => {
   // ──────────────────────────────────────────────────────────
   describe('2. Private User Profile Security (Owner-Only Access)', () => {
     before(async () => {
-      const user1Db = testEnv.authenticatedContext('user_1').firestore();
+      const user1Db = testEnv.authenticatedContext('user_1', { email: 'user1@safeorbit.com' }).firestore();
       await user1Db.collection('users').doc('user_1').set({
         id: 'user_1',
         name: 'User One',
@@ -460,11 +460,20 @@ describe('SafeOrbit Firestore Security & Privacy Rules Audit', () => {
     });
 
     it('denies joining using an unrelated invitation code that belongs to a different circle', async () => {
+      // Setup a circle that specifies an invite code pointing to circle_unrelated
+      const owner = testEnv.authenticatedContext('owner_j').firestore();
+      await owner.collection('circles').doc('circle_mismatch').set({
+        id: 'circle_mismatch',
+        name: 'Mismatch Circle',
+        ownerId: 'owner_j',
+        inviteCode: 'SO-UNRELATED-CODE',
+        memberIds: ['owner_j']
+      });
+
       const attacker = testEnv.authenticatedContext('attacker').firestore();
-      // Circle has an unrelated or mismatched inviteCode
       await assertFails(
-        attacker.collection('circles').doc('circle_join_test').update({
-          memberIds: ['owner_j', 'member_j', 'attacker']
+        attacker.collection('circles').doc('circle_mismatch').update({
+          memberIds: ['owner_j', 'attacker']
         })
       );
     });
