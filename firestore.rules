@@ -172,19 +172,18 @@ service cloud.firestore {
         resource.data.isActive == true &&
         resource.data.expiresAt > request.time.toMillis();
 
-      // Only circle members/creators can create invite codes with maximum 48h validity
+      // Only the verified circle owner can create invite codes with maximum 48h validity
       allow create: if isAuthenticated() &&
         request.resource.data.createdBy == request.auth.uid &&
         request.resource.data.circleId != null &&
         exists(/databases/$(database)/documents/circles/$(request.resource.data.circleId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/circles/$(request.resource.data.circleId)).data.memberIds &&
+        get(/databases/$(database)/documents/circles/$(request.resource.data.circleId)).data.ownerId == request.auth.uid &&
         request.resource.data.expiresAt <= request.time.toMillis() + (48 * 60 * 60 * 1000);
 
-      // Deactivation / update / delete restricted to creator or circle owner
-      allow update, delete: if isAuthenticated() && (
-        resource.data.createdBy == request.auth.uid ||
-        get(/databases/$(database)/documents/circles/$(resource.data.circleId)).data.ownerId == request.auth.uid
-      );
+      // Deactivation / update / delete strictly restricted to verified circle owner
+      allow update, delete: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/circles/$(resource.data.circleId)) &&
+        get(/databases/$(database)/documents/circles/$(resource.data.circleId)).data.ownerId == request.auth.uid;
     }
   }
 }

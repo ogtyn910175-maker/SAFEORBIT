@@ -407,6 +407,40 @@ describe('SafeOrbit Firestore Security & Privacy Rules Audit', () => {
       }));
     });
 
+    it('denies non-owner member from creating an invite code for the circle', async () => {
+      const member = testEnv.authenticatedContext('member_j').firestore();
+      await assertFails(member.collection('invites').doc('SO-MEMBER-INV').set({
+        code: 'SO-MEMBER-INV',
+        circleId: circleId,
+        createdBy: 'member_j',
+        isActive: true,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+      }));
+    });
+
+    it('allows circle owner to deactivate an invitation', async () => {
+      const owner = testEnv.authenticatedContext('owner_j').firestore();
+      await assertSucceeds(owner.collection('invites').doc(inviteCode).update({
+        isActive: false
+      }));
+      // Re-enable for subsequent join tests
+      await assertSucceeds(owner.collection('invites').doc(inviteCode).update({
+        isActive: true
+      }));
+    });
+
+    it('denies non-owner from deactivating or modifying an invitation', async () => {
+      const member = testEnv.authenticatedContext('member_j').firestore();
+      await assertFails(member.collection('invites').doc(inviteCode).update({
+        isActive: false
+      }));
+
+      const attacker = testEnv.authenticatedContext('attacker').firestore();
+      await assertFails(attacker.collection('invites').doc(inviteCode).update({
+        isActive: false
+      }));
+    });
+
     it('denies reading an expired invite', async () => {
       const owner = testEnv.authenticatedContext('owner_j').firestore();
       await owner.collection('invites').doc('SO-EXPIRED').set({
