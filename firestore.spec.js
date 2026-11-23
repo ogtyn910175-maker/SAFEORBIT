@@ -25,91 +25,73 @@ describe('SafeOrbit Firestore Security Rules Audit', () => {
     }
   });
 
-  beforeEach(async () => {
-    if (testEnv) {
-      await testEnv.clearFirestore();
-    }
-  });
-
-  // ──────────────────────────────────────────────────────────
-  // 1. UNAUTHENTICATED ACCESS
-  // ──────────────────────────────────────────────────────────
-  describe('Unauthenticated Access (Zero-Trust Gate)', () => {
+  // 1. Unauthenticated Access
+  describe('1. Unauthenticated Access (Zero-Trust Gate)', () => {
     it('denies unauthenticated read from users/{userId}', async () => {
-      const unauthedDb = testEnv.unauthenticatedContext().firestore();
-      await assertFails(unauthedDb.collection('users').doc('alice').get());
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(db.collection('users').doc('user_anon').get());
     });
 
     it('denies unauthenticated write to users/{userId}', async () => {
-      const unauthedDb = testEnv.unauthenticatedContext().firestore();
-      await assertFails(unauthedDb.collection('users').doc('alice').set({ name: 'Hacker' }));
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(db.collection('users').doc('user_anon').set({ name: 'Hacker' }));
     });
 
     it('denies unauthenticated read from circles/{circleId}', async () => {
-      const unauthedDb = testEnv.unauthenticatedContext().firestore();
-      await assertFails(unauthedDb.collection('circles').doc('circle_1').get());
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(db.collection('circles').doc('circle_anon').get());
     });
 
     it('denies unauthenticated read from invites/{code}', async () => {
-      const unauthedDb = testEnv.unauthenticatedContext().firestore();
-      await assertFails(unauthedDb.collection('invites').doc('SO-123-456').get());
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(db.collection('invites').doc('SO-000-000').get());
     });
   });
 
-  // ──────────────────────────────────────────────────────────
-  // 2. USER PROFILES (users/{userId})
-  // ──────────────────────────────────────────────────────────
-  describe('User Profile Security', () => {
+  // 2. User Profiles
+  describe('2. User Profile Security', () => {
     it('allows a user to create and update their own profile', async () => {
-      const aliceDb = testEnv.authenticatedContext('alice').firestore();
-      await assertSucceeds(aliceDb.collection('users').doc('alice').set({
-        id: 'alice',
-        name: 'Alice',
+      const db = testEnv.authenticatedContext('user_1').firestore();
+      await assertSucceeds(db.collection('users').doc('user_1').set({
+        id: 'user_1',
+        name: 'User One',
         role: 'Creator',
         isProfileSetupComplete: true
       }));
 
-      await assertSucceeds(aliceDb.collection('users').doc('alice').update({
-        name: 'Alice Updated'
+      await assertSucceeds(db.collection('users').doc('user_1').update({
+        name: 'User One Updated'
       }));
     });
 
     it('denies a user from modifying another users profile', async () => {
-      // Set up Alice's profile via admin context
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await context.firestore().collection('users').doc('alice').set({
-          id: 'alice',
-          name: 'Alice'
-        });
-      });
+      const user1Db = testEnv.authenticatedContext('user_1').firestore();
+      await assertSucceeds(user1Db.collection('users').doc('user_1').set({
+        id: 'user_1',
+        name: 'User One'
+      }));
 
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
-      await assertFails(bobDb.collection('users').doc('alice').update({
-        name: 'Bob Modified Alice'
+      const user2Db = testEnv.authenticatedContext('user_2').firestore();
+      await assertFails(user2Db.collection('users').doc('user_1').update({
+        name: 'Hacked by User 2'
       }));
     });
 
     it('allows authenticated users to read profiles to display member names', async () => {
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await context.firestore().collection('users').doc('alice').set({
-          id: 'alice',
-          name: 'Alice'
-        });
-      });
+      const user1Db = testEnv.authenticatedContext('user_1').firestore();
+      await user1Db.collection('users').doc('user_1').set({ id: 'user_1', name: 'User One' });
 
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
-      await assertSucceeds(bobDb.collection('users').doc('alice').get());
+      const user2Db = testEnv.authenticatedContext('user_2').firestore();
+      await assertSucceeds(user2Db.collection('users').doc('user_1').get());
     });
   });
 
-  // ──────────────────────────────────────────────────────────
-  // 3. FAMILY CIRCLES (circles/{circleId})
-  // ──────────────────────────────────────────────────────────
-  describe('Family Circle Creation & Boundary Security', () => {
+  // 3. Family Circles
+  describe('3. Family Circle Creation & Boundary Security', () => {
     it('allows authenticated user to create a circle where they are owner and member', async () => {
-      const aliceDb = testEnv.authenticatedContext('alice').firestore();
-      await assertSucceeds(aliceDb.collection('circles').doc('circle_1').set({
-        id: 'circle_1',
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      await assertSucceeds(alice.collection('circles').doc('circle_alice').set({
+        id: 'circle_alice',
         name: 'Alice Family Orbit',
         ownerId: 'alice',
         memberIds: ['alice'],
@@ -118,226 +100,215 @@ describe('SafeOrbit Firestore Security Rules Audit', () => {
     });
 
     it('denies user from forging circle ownership to someone else', async () => {
-      const aliceDb = testEnv.authenticatedContext('alice').firestore();
-      await assertFails(aliceDb.collection('circles').doc('circle_fake').set({
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      await assertFails(alice.collection('circles').doc('circle_fake').set({
         id: 'circle_fake',
         name: 'Fake Orbit',
-        ownerId: 'bob', // Alice claims Bob is owner
+        ownerId: 'bob',
         memberIds: ['alice'],
         createdAt: Date.now()
       }));
     });
 
     it('denies an outsider from reading a private circle', async () => {
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await context.firestore().collection('circles').doc('circle_private').set({
-          id: 'circle_private',
-          name: 'Alice Family Orbit',
-          ownerId: 'alice',
-          memberIds: ['alice', 'bob']
-        });
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      await alice.collection('circles').doc('circle_private').set({
+        id: 'circle_private',
+        name: 'Private Circle',
+        ownerId: 'alice',
+        memberIds: ['alice']
       });
 
-      const charlieDb = testEnv.authenticatedContext('charlie').firestore();
-      await assertFails(charlieDb.collection('circles').doc('circle_private').get());
+      const charlie = testEnv.authenticatedContext('charlie').firestore();
+      await assertFails(charlie.collection('circles').doc('circle_private').get());
     });
 
     it('allows circle members and owner to read their circle', async () => {
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await context.firestore().collection('circles').doc('circle_private').set({
-          id: 'circle_private',
-          name: 'Alice Family Orbit',
-          ownerId: 'alice',
-          memberIds: ['alice', 'bob']
-        });
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      await alice.collection('circles').doc('circle_shared').set({
+        id: 'circle_shared',
+        name: 'Shared Circle',
+        ownerId: 'alice',
+        memberIds: ['alice', 'bob']
       });
 
-      const aliceDb = testEnv.authenticatedContext('alice').firestore();
-      await assertSucceeds(aliceDb.collection('circles').doc('circle_private').get());
+      await assertSucceeds(alice.collection('circles').doc('circle_shared').get());
 
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
-      await assertSucceeds(bobDb.collection('circles').doc('circle_private').get());
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      await assertSucceeds(bob.collection('circles').doc('circle_shared').get());
     });
   });
 
-  // ──────────────────────────────────────────────────────────
-  // 4. PRIVILEGE ESCALATION & CIRCLE JOIN/LEAVE
-  // ──────────────────────────────────────────────────────────
-  describe('Privilege Escalation & Controlled Membership Changes', () => {
-    beforeEach(async () => {
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await context.firestore().collection('circles').doc('circle_test').set({
-          id: 'circle_test',
-          name: 'SafeOrbit Core',
-          ownerId: 'alice',
-          memberIds: ['alice', 'bob']
-        });
+  // 4. Privilege Escalation & Member Leaving
+  describe('4. Privilege Escalation & Controlled Membership Changes', () => {
+    before(async () => {
+      const alice = testEnv.authenticatedContext('alice_p').firestore();
+      await alice.collection('circles').doc('circle_priv').set({
+        id: 'circle_priv',
+        name: 'Priv Test Circle',
+        ownerId: 'alice_p',
+        memberIds: ['alice_p', 'bob_p']
       });
     });
 
     it('allows owner to update circle metadata', async () => {
-      const aliceDb = testEnv.authenticatedContext('alice').firestore();
-      await assertSucceeds(aliceDb.collection('circles').doc('circle_test').update({
-        name: 'Renamed Orbit'
+      const alice = testEnv.authenticatedContext('alice_p').firestore();
+      await assertSucceeds(alice.collection('circles').doc('circle_priv').update({
+        name: 'Renamed Priv Circle'
       }));
     });
 
     it('denies regular member from changing circle metadata or ownership', async () => {
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
-      await assertFails(bobDb.collection('circles').doc('circle_test').update({
-        name: 'Bob Hacked Orbit'
+      const bob = testEnv.authenticatedContext('bob_p').firestore();
+      await assertFails(bob.collection('circles').doc('circle_priv').update({
+        name: 'Hacked Priv Name'
       }));
-
-      await assertFails(bobDb.collection('circles').doc('circle_test').update({
-        ownerId: 'bob'
+      await assertFails(bob.collection('circles').doc('circle_priv').update({
+        ownerId: 'bob_p'
       }));
     });
 
     it('allows a member to leave by removing strictly their own UID', async () => {
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
-      await assertSucceeds(bobDb.collection('circles').doc('circle_test').update({
-        memberIds: ['alice'] // Bob removes only Bob
+      const bob = testEnv.authenticatedContext('bob_p').firestore();
+      await assertSucceeds(bob.collection('circles').doc('circle_priv').update({
+        memberIds: ['alice_p']
       }));
     });
 
-    it('denies a member from kicking out other members (only owner can)', async () => {
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
-      await assertFails(bobDb.collection('circles').doc('circle_test').update({
-        memberIds: ['bob'] // Bob tries to kick Alice
+    it('denies a member from kicking out other members', async () => {
+      const alice = testEnv.authenticatedContext('alice_p').firestore();
+      await alice.collection('circles').doc('circle_priv').update({
+        memberIds: ['alice_p', 'bob_p']
+      });
+
+      const bob = testEnv.authenticatedContext('bob_p').firestore();
+      await assertFails(bob.collection('circles').doc('circle_priv').update({
+        memberIds: ['bob_p']
       }));
     });
   });
 
-  // ──────────────────────────────────────────────────────────
-  // 5. CIRCLE MEMBERS SUBCOLLECTION
-  // ──────────────────────────────────────────────────────────
-  describe('Circle Members Subcollection (/circles/{id}/members/{id})', () => {
-    beforeEach(async () => {
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await context.firestore().collection('circles').doc('circle_sub').set({
-          id: 'circle_sub',
-          name: 'Test Orbit',
-          ownerId: 'alice',
-          memberIds: ['alice', 'bob']
-        });
-        await context.firestore().collection('circles').doc('circle_sub')
-          .collection('members').doc('alice').set({
-            id: 'alice',
-            name: 'Alice',
-            role: 'Owner'
-          });
-        await context.firestore().collection('circles').doc('circle_sub')
-          .collection('members').doc('bob').set({
-            id: 'bob',
-            name: 'Bob',
-            role: 'Member'
-          });
+  // 5. Circle Members Subcollection
+  describe('5. Circle Members Subcollection Security', () => {
+    before(async () => {
+      const alice = testEnv.authenticatedContext('alice_s').firestore();
+      await alice.collection('circles').doc('circle_sub').set({
+        id: 'circle_sub',
+        name: 'Sub Test Orbit',
+        ownerId: 'alice_s',
+        memberIds: ['alice_s', 'bob_s']
+      });
+      await alice.collection('circles').doc('circle_sub').collection('members').doc('alice_s').set({
+        id: 'alice_s',
+        name: 'Alice S',
+        role: 'Owner'
+      });
+      await alice.collection('circles').doc('circle_sub').collection('members').doc('bob_s').set({
+        id: 'bob_s',
+        name: 'Bob S',
+        role: 'Member'
       });
     });
 
     it('denies outsider from reading member cards', async () => {
-      const charlieDb = testEnv.authenticatedContext('charlie').firestore();
+      const charlie = testEnv.authenticatedContext('charlie_s').firestore();
       await assertFails(
-        charlieDb.collection('circles').doc('circle_sub')
-          .collection('members').doc('alice').get()
+        charlie.collection('circles').doc('circle_sub')
+          .collection('members').doc('alice_s').get()
       );
     });
 
     it('allows members to read member cards', async () => {
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
+      const bob = testEnv.authenticatedContext('bob_s').firestore();
       await assertSucceeds(
-        bobDb.collection('circles').doc('circle_sub')
-          .collection('members').doc('alice').get()
+        bob.collection('circles').doc('circle_sub')
+          .collection('members').doc('alice_s').get()
       );
     });
 
     it('allows member to update their own card', async () => {
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
+      const bob = testEnv.authenticatedContext('bob_s').firestore();
       await assertSucceeds(
-        bobDb.collection('circles').doc('circle_sub')
-          .collection('members').doc('bob').update({
-            name: 'Bob Updated'
+        bob.collection('circles').doc('circle_sub')
+          .collection('members').doc('bob_s').update({
+            name: 'Bob S Updated'
           })
       );
     });
 
     it('denies member from updating another members card', async () => {
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
+      const bob = testEnv.authenticatedContext('bob_s').firestore();
       await assertFails(
-        bobDb.collection('circles').doc('circle_sub')
-          .collection('members').doc('alice').update({
+        bob.collection('circles').doc('circle_sub')
+          .collection('members').doc('alice_s').update({
             name: 'Bob Modified Alice'
           })
       );
     });
 
     it('allows circle owner to remove a member card', async () => {
-      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const alice = testEnv.authenticatedContext('alice_s').firestore();
       await assertSucceeds(
-        aliceDb.collection('circles').doc('circle_sub')
-          .collection('members').doc('bob').delete()
+        alice.collection('circles').doc('circle_sub')
+          .collection('members').doc('bob_s').delete()
       );
     });
   });
 
-  // ──────────────────────────────────────────────────────────
-  // 6. INVITE CODES (invites/{code})
-  // ──────────────────────────────────────────────────────────
-  describe('Invite Codes Expiry & Access Control', () => {
+  // 6. Invite Codes
+  describe('6. Invite Codes Expiry & Access Control', () => {
     it('allows creator to create an invite valid up to 48 hours', async () => {
-      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const alice = testEnv.authenticatedContext('alice_inv').firestore();
       const now = Date.now();
-      await assertSucceeds(aliceDb.collection('invites').doc('SO-111-222').set({
-        code: 'SO-111-222',
+      await assertSucceeds(alice.collection('invites').doc('SO-INV-VALID').set({
+        code: 'SO-INV-VALID',
         circleId: 'circle_sub',
-        createdBy: 'alice',
+        createdBy: 'alice_inv',
         isActive: true,
-        expiresAt: now + (24 * 60 * 60 * 1000) // 24h validity
+        expiresAt: now + (24 * 60 * 60 * 1000)
       }));
     });
 
     it('denies creating an invite with expiry exceeding 48 hours', async () => {
-      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const alice = testEnv.authenticatedContext('alice_inv').firestore();
       const now = Date.now();
-      await assertFails(aliceDb.collection('invites').doc('SO-TOO-LONG').set({
-        code: 'SO-TOO-LONG',
+      await assertFails(alice.collection('invites').doc('SO-INV-LONG').set({
+        code: 'SO-INV-LONG',
         circleId: 'circle_sub',
-        createdBy: 'alice',
+        createdBy: 'alice_inv',
         isActive: true,
-        expiresAt: now + (72 * 60 * 60 * 1000) // 72h is not allowed
+        expiresAt: now + (72 * 60 * 60 * 1000)
       }));
     });
 
     it('denies reading an expired invite', async () => {
-      const pastTime = Date.now() - (60 * 60 * 1000); // 1 hour ago
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await context.firestore().collection('invites').doc('SO-EXPIRED').set({
-          code: 'SO-EXPIRED',
-          circleId: 'circle_sub',
-          createdBy: 'alice',
-          isActive: true,
-          expiresAt: pastTime
-        });
+      const past = Date.now() - (60 * 1000);
+      const alice = testEnv.authenticatedContext('alice_inv').firestore();
+      await alice.collection('invites').doc('SO-INV-EXPIRED').set({
+        code: 'SO-INV-EXPIRED',
+        circleId: 'circle_sub',
+        createdBy: 'alice_inv',
+        isActive: true,
+        expiresAt: past
       });
 
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
-      await assertFails(bobDb.collection('invites').doc('SO-EXPIRED').get());
+      const bob = testEnv.authenticatedContext('bob_inv').firestore();
+      await assertFails(bob.collection('invites').doc('SO-INV-EXPIRED').get());
     });
 
     it('denies reading a deactivated invite', async () => {
-      const futureTime = Date.now() + (24 * 60 * 60 * 1000);
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await context.firestore().collection('invites').doc('SO-INACTIVE').set({
-          code: 'SO-INACTIVE',
-          circleId: 'circle_sub',
-          createdBy: 'alice',
-          isActive: false, // deactivated
-          expiresAt: futureTime
-        });
+      const future = Date.now() + (24 * 60 * 60 * 1000);
+      const alice = testEnv.authenticatedContext('alice_inv').firestore();
+      await alice.collection('invites').doc('SO-INV-INACT').set({
+        code: 'SO-INV-INACT',
+        circleId: 'circle_sub',
+        createdBy: 'alice_inv',
+        isActive: false,
+        expiresAt: future
       });
 
-      const bobDb = testEnv.authenticatedContext('bob').firestore();
-      await assertFails(bobDb.collection('invites').doc('SO-INACTIVE').get());
+      const bob = testEnv.authenticatedContext('bob_inv').firestore();
+      await assertFails(bob.collection('invites').doc('SO-INV-INACT').get());
     });
   });
 });
