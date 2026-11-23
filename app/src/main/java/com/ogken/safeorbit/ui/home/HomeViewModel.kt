@@ -9,7 +9,9 @@ import com.ogken.safeorbit.model.User
 import com.ogken.safeorbit.repository.FamilyCircleRepository
 import com.ogken.safeorbit.repository.InMemoryFamilyCircleRepository
 import com.ogken.safeorbit.repository.InMemoryLocationSharingRepository
+import com.ogken.safeorbit.repository.InMemoryUserRepository
 import com.ogken.safeorbit.repository.LocationSharingRepository
+import com.ogken.safeorbit.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,14 +22,17 @@ import kotlinx.coroutines.flow.update
 data class HomeUiState(
     val user: User = User(),
     val circleName: String = "SafeOrbit Core Circle",
+    val inviteCode: String = "SO-ORBIT-729",
     val members: List<CircleMember> = emptyList(),
     val sharingState: LocationSharingState = LocationSharingState(),
+    val isConsentDialogOpen: Boolean = false,
     val isSettingsOpen: Boolean = false
 )
 
 class HomeViewModel(
-    private val familyCircleRepository: FamilyCircleRepository = InMemoryFamilyCircleRepository(),
-    private val locationSharingRepository: LocationSharingRepository = InMemoryLocationSharingRepository(),
+    private val userRepository: UserRepository = InMemoryUserRepository.instance,
+    private val familyCircleRepository: FamilyCircleRepository = InMemoryFamilyCircleRepository.instance,
+    private val locationSharingRepository: LocationSharingRepository = InMemoryLocationSharingRepository.instance,
     private val getOrbitCircleUseCase: GetOrbitCircleUseCase = GetOrbitCircleUseCase(familyCircleRepository)
 ) : ViewModel() {
 
@@ -39,15 +44,40 @@ class HomeViewModel(
     }
 
     private fun loadData() {
-        _uiState.update { it.copy(circleName = getOrbitCircleUseCase.getCircleName()) }
+        userRepository.getUser().onEach { user ->
+            _uiState.update { it.copy(user = user) }
+        }.launchIn(viewModelScope)
 
-        getOrbitCircleUseCase().onEach { members ->
-            _uiState.update { it.copy(members = members) }
+        familyCircleRepository.getCircle().onEach { circle ->
+            _uiState.update {
+                it.copy(
+                    circleName = circle.name,
+                    inviteCode = circle.inviteCode,
+                    members = circle.members
+                )
+            }
         }.launchIn(viewModelScope)
 
         locationSharingRepository.getLocationSharingState().onEach { sharingState ->
             _uiState.update { it.copy(sharingState = sharingState) }
         }.launchIn(viewModelScope)
+    }
+
+    fun requestToggleSharing() {
+        if (_uiState.value.sharingState.isSharingActive) {
+            locationSharingRepository.toggleSharingWithConsent(consentAcknowledged = true, enable = false)
+        } else {
+            _uiState.update { it.copy(isConsentDialogOpen = true) }
+        }
+    }
+
+    fun confirmConsentAndEnableSharing() {
+        locationSharingRepository.toggleSharingWithConsent(consentAcknowledged = true, enable = true)
+        _uiState.update { it.copy(isConsentDialogOpen = false) }
+    }
+
+    fun dismissConsentDialog() {
+        _uiState.update { it.copy(isConsentDialogOpen = false) }
     }
 
     fun openSettings() {

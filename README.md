@@ -1,7 +1,7 @@
 # SafeOrbit — Family Safety & Location Sharing
 
 [![SafeOrbit Android CI](https://github.com/OWNER/REPOSITORY/actions/workflows/android.yml/badge.svg)](https://github.com/OWNER/REPOSITORY/actions/workflows/android.yml)
-**Version:** 1.0.0 (Stage 1 Architecture)  
+**Version:** 1.1.0 (Stage 2 Architecture)  
 **Developer Studio:** OG KEN Studio  
 **Creator Credit:** Tanmay  
 **Package ID:** `com.ogken.safeorbit`  
@@ -176,5 +176,5 @@ In accordance with Stage 1 requirements:
 ## 🗺️ SafeOrbit Roadmap
 
 - [x] **Stage 1:** Project foundation, branding identity, Material 3 Jetpack Compose UI, MVVM architecture, navigation, and GitHub Actions cloud build.
-- [ ] **Stage 2:** Firebase Authentication, circle invitations, encrypted cloud storage, and pairing.
-- [ ] **Stage 3:** Live Google Maps integration, consent-based GPS location service, and geofencing safety alerts.
+- [x] **Stage 2:** User profile management, family circle creation and joining, invite code sharing, consent verification, and full settings hub.
+- [ ] **Stage 3:** Firebase Authentication, encrypted cloud sync, live Google Maps integration, and live GPS location sharing.

@@ -6,7 +6,13 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.ogken.safeorbit.ui.circle.CircleMembersScreen
+import com.ogken.safeorbit.ui.circle.CreateCircleScreen
+import com.ogken.safeorbit.ui.circle.JoinCircleScreen
 import com.ogken.safeorbit.ui.home.HomeScreen
+import com.ogken.safeorbit.ui.profile.ProfileSettingsScreen
+import com.ogken.safeorbit.ui.profile.ProfileSetupScreen
+import com.ogken.safeorbit.ui.settings.SettingsScreen
 import com.ogken.safeorbit.ui.welcome.WelcomeScreen
 
 @Composable
@@ -26,12 +32,75 @@ fun SafeOrbitNavGraph(
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Welcome.route) { inclusive = true }
                     }
+                },
+                onSetupProfileClick = {
+                    navController.navigate(Screen.ProfileSetup.route)
                 }
             )
         }
 
+        composable(route = Screen.ProfileSetup.route) {
+            ProfileSetupScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onProfileSaved = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(route = Screen.ProfileSettings.route) {
+            ProfileSettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         composable(route = Screen.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                onNavigateToCircleMembers = { navController.navigate(Screen.CircleMembers.route) },
+                onNavigateToProfile = { navController.navigate(Screen.ProfileSettings.route) },
+                onNavigateToCreateCircle = { navController.navigate(Screen.CreateCircle.route) },
+                onNavigateToJoinCircle = { navController.navigate(Screen.JoinCircle.route) }
+            )
+        }
+
+        composable(route = Screen.CreateCircle.route) {
+            CreateCircleScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onCircleCreated = {
+                    navController.navigate(Screen.CircleMembers.route) {
+                        popUpTo(Screen.Home.route)
+                    }
+                }
+            )
+        }
+
+        composable(route = Screen.JoinCircle.route) {
+            JoinCircleScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onCircleJoined = {
+                    navController.navigate(Screen.CircleMembers.route) {
+                        popUpTo(Screen.Home.route)
+                    }
+                }
+            )
+        }
+
+        composable(route = Screen.CircleMembers.route) {
+            CircleMembersScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateCreateCircle = { navController.navigate(Screen.CreateCircle.route) },
+                onNavigateJoinCircle = { navController.navigate(Screen.JoinCircle.route) }
+            )
+        }
+
+        composable(route = Screen.Settings.route) {
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateProfileSettings = { navController.navigate(Screen.ProfileSettings.route) }
+            )
         }
     }
 }

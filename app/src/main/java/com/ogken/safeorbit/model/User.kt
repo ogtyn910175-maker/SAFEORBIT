@@ -6,6 +6,9 @@ package com.ogken.safeorbit.model
 data class User(
     val id: String = "user_tanmay_01",
     val name: String = "Tanmay",
-    val role: String = "Orbit Admin & Circle Creator",
-    val email: String = "tanmay@safeorbit.local"
+    val role: String = "Circle Creator",
+    val emergencyPhone: String = "+91 98765 43210",
+    val avatarInitial: String = "T",
+    val avatarColorHex: Long = 0xFF42D9B0,
+    val isProfileSetupComplete: Boolean = true
 )

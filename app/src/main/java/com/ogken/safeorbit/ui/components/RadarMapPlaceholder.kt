@@ -13,11 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocationSearching
 import androidx.compose.material.icons.filled.SensorsOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,27 +41,26 @@ import com.ogken.safeorbit.theme.SafeOrbitWhite
 
 @Composable
 fun RadarMapPlaceholder(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isSimulating: Boolean = false
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(240.dp)
+            .height(220.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(SafeOrbitDeepBackground)
-            .border(1.5.dp, SafeOrbitBorder, RoundedCornerShape(20.dp)),
+            .border(1.5.dp, if (isSimulating) SafeOrbitTeal.copy(alpha = 0.5f) else SafeOrbitBorder, RoundedCornerShape(20.dp)),
         contentAlignment = Alignment.Center
     ) {
-        // High-tech Canvas rendering grid, radar circles, and crosshairs
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = size.width
             val canvasHeight = size.height
             val centerX = canvasWidth / 2f
             val centerY = canvasHeight / 2f
 
-            // Background Grid Lines
             val gridStep = 40.dp.toPx()
-            val gridColor = Color(0x1542D9B0)
+            val gridColor = if (isSimulating) Color(0x2542D9B0) else Color(0x1542D9B0)
             val dashEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
 
             var x = 0f
@@ -90,8 +87,7 @@ fun RadarMapPlaceholder(
                 y += gridStep
             }
 
-            // Concentric Radar Rings
-            val ringColor = Color(0x3042D9B0)
+            val ringColor = if (isSimulating) Color(0x4542D9B0) else Color(0x3042D9B0)
             val outerRadius = (canvasHeight.coerceAtMost(canvasWidth) / 2f) * 0.85f
 
             drawCircle(
@@ -115,7 +111,6 @@ fun RadarMapPlaceholder(
                 style = Stroke(width = 1.5f)
             )
 
-            // Center crosshairs
             drawLine(
                 color = SafeOrbitTeal.copy(alpha = 0.6f),
                 start = Offset(centerX - 24f, centerY),
@@ -130,52 +125,51 @@ fun RadarMapPlaceholder(
             )
         }
 
-        // Informative, honest architectural placeholder overlay
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(20.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
             Box(
                 modifier = Modifier
                     .clip(CircleShape)
                     .background(SafeOrbitNavy.copy(alpha = 0.9f))
                     .border(1.dp, SafeOrbitTeal.copy(alpha = 0.5f), CircleShape)
-                    .padding(10.dp)
+                    .padding(8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.SensorsOff,
                     contentDescription = "Sensors Inactive",
-                    tint = SafeOrbitMint,
-                    modifier = Modifier.size(24.dp)
+                    tint = if (isSimulating) SafeOrbitTeal else SafeOrbitMint,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Map Visualization Standby",
-                style = MaterialTheme.typography.titleMedium,
+                text = if (isSimulating) "Radar Map Simulation Active" else "Map Visualization Standby",
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = SafeOrbitWhite
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = "Stage 2 Interface Placeholder • GPS Unbound",
+                style = MaterialTheme.typography.labelSmall,
+                color = SafeOrbitMint
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Stage 1 Architectural Foundation • No GPS Polling",
-                style = MaterialTheme.typography.labelSmall,
-                color = SafeOrbitMint
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Google Maps & live GPS tracking will be connected in Stage 2 with strict user consent verification.",
+                text = "Live Google Maps rendering and encrypted GPS tracking will be activated in Stage 3 with deliberate user consent.",
                 style = MaterialTheme.typography.bodySmall,
                 color = SafeOrbitSecondaryText,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 12.dp)
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
     }

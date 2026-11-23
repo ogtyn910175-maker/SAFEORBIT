@@ -2,12 +2,13 @@ package com.ogken.safeorbit.model
 
 /**
  * Encapsulates the location sharing status of the local device.
- * Per Stage 1 requirements, sharing is strictly initialized to OFF
- * and no background GPS or network transmission is performed.
+ * Per Stage 2 requirements, sharing defaults strictly to OFF.
+ * Users must knowingly agree through explicit consent verification before any sharing status changes.
  */
 data class LocationSharingState(
     val isSharingActive: Boolean = false,
     val statusLabel: String = "SHARING OFF",
-    val description: String = "Your location is completely private. No GPS signals or coordinates are being recorded or transmitted.",
-    val privacyBadge: String = "Zero-Surveillance Mode"
+    val description: String = "Your location is completely private. SafeOrbit Stage 2 runs in zero-tracking mode without GPS permissions.",
+    val privacyBadge: String = "Strict Consent Active",
+    val consentAcknowledged: Boolean = false
 )

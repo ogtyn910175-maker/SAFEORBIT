@@ -22,10 +22,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -48,6 +51,7 @@ import com.ogken.safeorbit.ui.components.SafeOrbitLogo
 @Composable
 fun WelcomeScreen(
     onContinueClick: () -> Unit,
+    onSetupProfileClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -55,7 +59,7 @@ fun WelcomeScreen(
             .fillMaxSize()
             .background(SafeOrbitDeepBackground)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 32.dp),
+            .padding(horizontal = 24.dp, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -63,36 +67,36 @@ fun WelcomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Official Logo with Shield & Orbit Pin
+            // Logo with Shield & Orbit Pin
             SafeOrbitLogo(
                 size = 110.dp,
                 showTitle = true,
                 showTagline = true
             )
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Value Proposition / Architecture Highlights
+            // Philosophy & Feature Cards
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 FeaturePill(
                     icon = Icons.Default.Lock,
-                    title = "Consent-First Sharing",
-                    description = "Live location is strictly OFF by default. Share only when you choose."
+                    title = "Strict Consent-First Sharing",
+                    description = "Location broadcasting defaults strictly to OFF. Your coordinates are never sent without your explicit agreement."
                 )
                 FeaturePill(
                     icon = Icons.Default.People,
                     title = "Private Family Circles",
-                    description = "Stay connected with those who matter most in an encrypted orbit."
+                    description = "Connect only with your trusted family members through unique invite codes."
                 )
                 FeaturePill(
-                    icon = Icons.Default.CheckCircle,
-                    title = "Zero-Surveillance Philosophy",
-                    description = "No unauthorized tracking, zero third-party telemetry, built for trust."
+                    icon = Icons.Default.Shield,
+                    title = "Zero-Surveillance Architecture",
+                    description = "Built for mutual family safety and peace of mind — never covert tracking or commercial profiling."
                 )
             }
         }
@@ -101,10 +105,10 @@ fun WelcomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 32.dp)
+                .padding(top = 28.dp)
         ) {
             Button(
-                onClick = onContinueClick,
+                onClick = onSetupProfileClick,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = SafeOrbitTeal,
                     contentColor = SafeOrbitDeepBackground
@@ -112,25 +116,48 @@ fun WelcomeScreen(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(54.dp)
             ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = SafeOrbitDeepBackground
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Continue to SafeOrbit",
+                    text = "Set Up Profile & Get Started",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedButton(
+                onClick = onContinueClick,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text(
+                    text = "Go Directly to Dashboard",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SafeOrbitMint
+                )
+                Spacer(modifier = Modifier.width(6.dp))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Arrow Forward",
-                    tint = SafeOrbitDeepBackground
+                    contentDescription = null,
+                    tint = SafeOrbitMint,
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "SafeOrbit v1.0.0 • Stage 1 Architecture",
+                text = "SafeOrbit v1.1.0 • Stage 2 Architecture",
                 style = MaterialTheme.typography.labelSmall,
                 color = SafeOrbitSecondaryText,
                 textAlign = TextAlign.Center
@@ -154,10 +181,10 @@ private fun FeaturePill(
             .border(1.dp, SafeOrbitBorder, RoundedCornerShape(16.dp))
             .padding(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.Top) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(38.dp)
                     .clip(CircleShape)
                     .background(SafeOrbitNavy),
                 contentAlignment = Alignment.Center
