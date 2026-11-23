@@ -40,7 +40,7 @@ class AccountDeletionTest {
     fun testAccountDeletionPurgesData() = runBlocking {
         // Given user is registered and sharing
         val signUpResult = authRepository.signUp(
-            email = "user@safeorbit.test",
+            email = "user@safeorbit.com",
             password = "SecurePassword123!",
             displayName = "SafeOrbit User",
             role = "Parent"
@@ -66,5 +66,8 @@ class AccountDeletionTest {
 
         val leaveResult = circleRepository.leaveCircle()
         assertTrue(leaveResult.isSuccess)
+
+        val circleAfter = circleRepository.getCircle().first()
+        assertEquals("No Active Circle", circleAfter.name)
     }
 }

@@ -288,12 +288,6 @@ fun SettingsScreen(
                     )
                 }
             }
-                    text = "Sign Out",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = SafeOrbitStatusOffText
-                )
-            }
 
             // 2. Location Sharing Controls UI
             SectionHeader(title = "Location Sharing Controls")
