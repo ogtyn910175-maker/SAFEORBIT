@@ -68,6 +68,10 @@ dependencies {
     // Google Play Services Location (FusedLocationProviderClient)
     implementation(libs.play.services.location)
 
+    // MapLibre Native Android (OpenStreetMap Raster Tiles, Zero Google Maps API Key / Billing)
+    implementation(libs.maplibre.android.sdk)
+    implementation(libs.okhttp)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

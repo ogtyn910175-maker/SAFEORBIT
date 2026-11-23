@@ -79,6 +79,7 @@ import com.ogken.safeorbit.theme.SafeOrbitWhite
 import com.ogken.safeorbit.ui.components.LocationConsentDialog
 import com.ogken.safeorbit.ui.components.LocationSharingSection
 import com.ogken.safeorbit.ui.components.RadarMapPlaceholder
+import com.ogken.safeorbit.ui.components.SafeOrbitMap
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -277,7 +278,7 @@ fun HomeScreen(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "Stage 4B",
+                        text = "MapLibre • OSM",
                         style = MaterialTheme.typography.labelSmall,
                         color = SafeOrbitMint,
                         fontWeight = FontWeight.Bold
@@ -304,28 +305,50 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(22.dp))
 
-            // Visually Designed Map Section (Preserved)
+            // MapLibre Native Map with OpenStreetMap raster tiles
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "Live Radar Map",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = SafeOrbitWhite
-                )
-                Text(
-                    text = if (uiState.sharingState.isSharingActive) "Consent Active" else "Consent Guard Active",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SafeOrbitMint
-                )
+                Column {
+                    Text(
+                        text = "Live Family Map",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SafeOrbitWhite
+                    )
+                    Text(
+                        text = "OpenStreetMap • Zero Tracking by Default",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SafeOrbitSecondaryText
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(SafeOrbitNavy)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = if (uiState.sharingState.isSharingActive) "Consent Active" else "Consent Guard Active",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SafeOrbitMint,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            RadarMapPlaceholder(isSimulating = uiState.sharingState.isSharingActive)
+            SafeOrbitMap(
+                memberLocations = uiState.memberLocations,
+                members = uiState.members,
+                isSharingActive = uiState.sharingState.isSharingActive,
+                isNetworkAvailable = uiState.sharingState.isNetworkAvailable,
+                userLatitude = uiState.userLatitude,
+                userLongitude = uiState.userLongitude
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 

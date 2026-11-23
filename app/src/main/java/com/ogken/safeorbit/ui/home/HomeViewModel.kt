@@ -3,11 +3,14 @@ package com.ogken.safeorbit.ui.home
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.ogken.safeorbit.domain.GetOrbitCircleUseCase
 import com.ogken.safeorbit.model.CircleMember
 import com.ogken.safeorbit.model.LocationPermissionStatus
 import com.ogken.safeorbit.model.LocationSharingState
 import com.ogken.safeorbit.model.User
+import com.ogken.safeorbit.model.UserLocation
 import com.ogken.safeorbit.repository.FamilyCircleRepository
 import com.ogken.safeorbit.repository.FirebaseFamilyCircleRepository
 import com.ogken.safeorbit.repository.FirebaseUserRepository
@@ -29,6 +32,9 @@ data class HomeUiState(
     val circleName: String = "",
     val inviteCode: String = "",
     val members: List<CircleMember> = emptyList(),
+    val memberLocations: List<UserLocation> = emptyList(),
+    val userLatitude: Double? = null,
+    val userLongitude: Double? = null,
     val sharingState: LocationSharingState = LocationSharingState(),
     val isConsentDialogOpen: Boolean = false,
     val shouldRequestPermission: Boolean = false,
@@ -46,6 +52,8 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private var locationsListenerRegistration: ListenerRegistration? = null
+
     init {
         loadData()
     }
@@ -58,6 +66,9 @@ class HomeViewModel(
         familyCircleRepository.getCircle().onEach { circle ->
             val hasCircle = circle.id.isNotBlank() && circle.name.isNotBlank()
             locationSharingRepository.updateCircleInfo(hasCircle = hasCircle, circleName = circle.name)
+            if (circle.id.isNotBlank() && circle.id != _uiState.value.circleId) {
+                listenToCircleLocations(circle.id)
+            }
             _uiState.update {
                 it.copy(
                     circleId = circle.id,
@@ -71,6 +82,29 @@ class HomeViewModel(
         locationSharingRepository.getLocationSharingState().onEach { sharingState ->
             _uiState.update { it.copy(sharingState = sharingState) }
         }.launchIn(viewModelScope)
+    }
+
+    private fun listenToCircleLocations(circleId: String) {
+        locationsListenerRegistration?.remove()
+        if (circleId.isBlank()) return
+
+        try {
+            locationsListenerRegistration = FirebaseFirestore.getInstance()
+                .collection("circles").document(circleId)
+                .collection("locations")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) return@addSnapshotListener
+                    val list = snapshot.documents.mapNotNull { doc ->
+                        doc.data?.let { UserLocation.fromMap(it) }
+                    }
+                    _uiState.update { it.copy(memberLocations = list) }
+                }
+        } catch (_: Exception) {}
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        locationsListenerRegistration?.remove()
     }
 
     /**
