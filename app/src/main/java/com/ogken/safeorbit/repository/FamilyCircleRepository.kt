@@ -70,26 +70,49 @@ class FirebaseFamilyCircleRepository(
                 } else {
                     // Listen to circle document
                     firestore.collection("circles").document(circleId)
-                        .addSnapshotListener { circleDoc, _ ->
-                            if (circleDoc != null && circleDoc.exists()) {
-                                val baseCircle = FamilyCircle.fromMap(circleDoc.data ?: emptyMap(), circleId)
-                                cachedCircleName = baseCircle.name
-                                cachedInviteCode = baseCircle.inviteCode
-
-                                // Fetch members subcollection
-                                firestore.collection("circles").document(circleId)
-                                    .collection("members")
-                                    .addSnapshotListener { membersSnapshot, _ ->
-                                        val members = membersSnapshot?.documents?.mapNotNull { doc ->
-                                            CircleMember.fromMap(doc.data ?: emptyMap(), uid)
-                                        } ?: emptyList()
-
-                                        trySend(baseCircle.copy(members = members))
-                                    }
-                            } else {
-                                val fallback = FamilyCircle(name = "Family Orbit")
-                                trySend(fallback)
+                        .addSnapshotListener { circleDoc, error ->
+                            if (error != null || circleDoc == null || !circleDoc.exists()) {
+                                val defaultCircle = FamilyCircle(
+                                    id = "",
+                                    name = "No Active Circle",
+                                    description = "Create or join a family circle to get started.",
+                                    inviteCode = "",
+                                    isDemoCircle = false
+                                )
+                                cachedCircleName = defaultCircle.name
+                                cachedInviteCode = ""
+                                trySend(defaultCircle)
+                                return@addSnapshotListener
                             }
+
+                            val baseCircle = FamilyCircle.fromMap(circleDoc.data ?: emptyMap(), circleId)
+                            if (uid !in baseCircle.memberIds && baseCircle.ownerId != uid) {
+                                val defaultCircle = FamilyCircle(
+                                    id = "",
+                                    name = "No Active Circle",
+                                    description = "You are not a member of this circle.",
+                                    inviteCode = "",
+                                    isDemoCircle = false
+                                )
+                                cachedCircleName = defaultCircle.name
+                                cachedInviteCode = ""
+                                trySend(defaultCircle)
+                                return@addSnapshotListener
+                            }
+
+                            cachedCircleName = baseCircle.name
+                            cachedInviteCode = baseCircle.inviteCode
+
+                            // Fetch members subcollection
+                            firestore.collection("circles").document(circleId)
+                                .collection("members")
+                                .addSnapshotListener { membersSnapshot, _ ->
+                                    val members = membersSnapshot?.documents?.mapNotNull { doc ->
+                                        CircleMember.fromMap(doc.data ?: emptyMap(), uid)
+                                    } ?: emptyList()
+
+                                    trySend(baseCircle.copy(members = members))
+                                }
                         }
                 }
             }
@@ -288,9 +311,13 @@ class FirebaseFamilyCircleRepository(
             firestore.collection("circles").document(circleId)
                 .update("memberIds", FieldValue.arrayRemove(memberId)).await()
 
-            // Clear target user's currentCircleId if possible
-            firestore.collection("users").document(memberId)
-                .update("currentCircleId", null).await()
+            // Clear target user's currentCircleId if permitted (otherwise client clears on sync)
+            try {
+                firestore.collection("users").document(memberId)
+                    .update("currentCircleId", null).await()
+            } catch (_: Exception) {
+                // Expected under strict owner-only profile rules
+            }
 
             Result.success(true)
         } catch (e: Exception) {
