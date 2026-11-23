@@ -1,0 +1,14 @@
+{
+  "name": "safeorbit-rules-tests",
+  "version": "1.0.0",
+  "description": "Firestore Security Rules unit tests for SafeOrbit",
+  "private": true,
+  "scripts": {
+    "test:rules": "firebase emulators:exec --only firestore \"mocha firestore.spec.js --timeout 15000\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase-tools": "^13.29.1",
+    "mocha": "^10.8.2"
+  }
+}
