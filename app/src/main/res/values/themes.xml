@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="Theme.SafeOrbit" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/safeorbit_deep_background</item>
+        <item name="android:navigationBarColor">@color/safeorbit_deep_background</item>
+        <item name="android:windowBackground">@color/safeorbit_deep_background</item>
+        <item name="android:windowSplashScreenBackground">@color/safeorbit_deep_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_safeorbit_logo</item>
+    </style>
+
+    <style name="Theme.SafeOrbit.Splash" parent="Theme.SafeOrbit">
+        <item name="android:windowSplashScreenBackground">@color/safeorbit_deep_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_safeorbit_logo</item>
+    </style>
+</resources>

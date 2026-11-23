@@ -1,0 +1,62 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Outer Orbital Glow Ring -->
+    <path
+        android:pathData="M 18,52 C 18,36 36,22 60,22 C 84,22 102,36 102,52 C 102,68 84,82 60,82 C 36,82 18,68 18,52 Z"
+        android:strokeWidth="1.5"
+        android:strokeColor="#3342D9B0"
+        android:fillColor="#00000000" />
+
+    <!-- Tilted Dynamic Orbital Ring -->
+    <group
+        android:pivotX="60"
+        android:pivotY="60"
+        android:rotation="-26">
+        <path
+            android:pathData="M 12,60 C 12,42 34,28 60,28 C 86,28 108,42 108,60 C 108,78 86,92 60,92 C 34,92 12,78 12,60 Z"
+            android:strokeWidth="2.5"
+            android:strokeColor="#72E9C4"
+            android:fillColor="#00000000" />
+        <!-- Orbiting Satellite Node 1 -->
+        <path
+            android:pathData="M 108,60 m -3.5,0 a 3.5,3.5 0 1,0 7,0 a 3.5,3.5 0 1,0 -7,0"
+            android:fillColor="#42D9B0" />
+        <!-- Orbiting Satellite Node 2 -->
+        <path
+            android:pathData="M 12,60 m -2.5,0 a 2.5,2.5 0 1,0 5,0 a 2.5,2.5 0 1,0 -5,0"
+            android:fillColor="#72E9C4" />
+    </group>
+
+    <!-- Protective Shield Body -->
+    <path
+        android:pathData="M 60,18 C 78,18 96,23 98,30 C 98,62 86,88 60,104 C 34,88 22,62 22,30 C 24,23 42,18 60,18 Z"
+        android:fillColor="#102D3A"
+        android:strokeWidth="3.5"
+        android:strokeColor="#42D9B0" />
+
+    <!-- Inner Shield Accent Line -->
+    <path
+        android:pathData="M 60,25 C 74,25 88,29 90,35 C 90,61 80,82 60,95 C 40,82 30,61 30,35 C 32,29 46,25 60,25 Z"
+        android:fillColor="#00000000"
+        android:strokeWidth="1.2"
+        android:strokeColor="#2572E9C4" />
+
+    <!-- Location Pin Structure -->
+    <path
+        android:pathData="M 60,36 C 51.5,36 45,42.5 45,51 C 45,61.5 60,76 60,76 C 60,76 75,61.5 75,51 C 75,42.5 68.5,36 60,36 Z"
+        android:fillColor="#42D9B0" />
+
+    <!-- Center Core Node / Orbital Nucleus -->
+    <path
+        android:pathData="M 60,50 m -5,0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0"
+        android:fillColor="#091820" />
+
+    <path
+        android:pathData="M 60,50 m -2.5,0 a 2.5,2.5 0 1,0 5,0 a 2.5,2.5 0 1,0 -5,0"
+        android:fillColor="#72E9C4" />
+
+</vector>

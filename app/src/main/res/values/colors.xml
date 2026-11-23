@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SafeOrbit Official Brand Colors -->
+    <color name="safeorbit_navy">#102D3A</color>
+    <color name="safeorbit_deep_background">#091820</color>
+    <color name="safeorbit_teal">#42D9B0</color>
+    <color name="safeorbit_mint">#72E9C4</color>
+    <color name="safeorbit_white">#FFFFFF</color>
+    <color name="safeorbit_secondary_text">#9BB3BA</color>
+
+    <!-- Additional functional tones -->
+    <color name="safeorbit_surface_navy">#143949</color>
+    <color name="safeorbit_status_off">#FF6B6B</color>
+    <color name="safeorbit_status_off_bg">#2A1820</color>
+</resources>

@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">SafeOrbit</string>
+    <string name="app_full_name">SafeOrbit — Family Safety &amp; Location Sharing</string>
+    <string name="developer_name">OG KEN Studio</string>
+    <string name="creator_name">Tanmay</string>
+    <string name="tagline">Stay connected. Share only when you choose.</string>
+    <string name="action_continue">Continue to SafeOrbit</string>
+    <string name="sharing_status_off">Location Sharing: OFF</string>
+    <string name="sharing_status_off_subtitle">Your live location is completely private. SafeOrbit never broadcasts your coordinates without explicit consent.</string>
+    <string name="map_placeholder_label">Live Radar Map (Offline)</string>
+    <string name="map_placeholder_hint">Map engine and GPS services are inactive in Stage 1 architecture.</string>
+    <string name="family_circle_heading">Your Orbit Circle</string>
+    <string name="settings_heading">SafeOrbit Settings</string>
+    <string name="welcome_heading">SafeOrbit</string>
+    <string name="welcome_subheading">Family Safety &amp; Consent-First Location Sharing</string>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#091820"
+        android:pathData="M0,0h108v108h-108z" />
+    <!-- Subtle Orbit Grid Ring 1 -->
+    <path
+        android:pathData="M 54,54 m -42,0 a 42,42 0 1,0 84,0 a 42,42 0 1,0 -84,0"
+        android:strokeWidth="1"
+        android:strokeColor="#102D3A"
+        android:fillColor="#00000000" />
+    <!-- Subtle Orbit Grid Ring 2 -->
+    <path
+        android:pathData="M 54,54 m -28,0 a 28,28 0 1,0 56,0 a 28,28 0 1,0 -56,0"
+        android:strokeWidth="1"
+        android:strokeColor="#143949"
+        android:fillColor="#00000000" />
+</vector>
