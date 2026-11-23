@@ -1,5 +1,7 @@
 package com.ogken.safeorbit.ui.components
 
+import android.util.Log
+import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -19,7 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
@@ -53,7 +55,6 @@ import com.ogken.safeorbit.theme.SafeOrbitSecondaryText
 import com.ogken.safeorbit.theme.SafeOrbitStatusOff
 import com.ogken.safeorbit.theme.SafeOrbitStatusOffContainer
 import com.ogken.safeorbit.theme.SafeOrbitStatusOffText
-import com.ogken.safeorbit.theme.SafeOrbitSurface
 import com.ogken.safeorbit.theme.SafeOrbitTeal
 import com.ogken.safeorbit.theme.SafeOrbitWhite
 import org.maplibre.android.annotations.MarkerOptions
@@ -64,6 +65,8 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 
+private const val TAG = "SafeOrbitMap"
+
 /**
  * MapLibre Native Map component configured with OpenStreetMap raster tiles.
  *
@@ -72,9 +75,9 @@ import org.maplibre.android.maps.Style
  * 2. Uses OpenStreetMap HTTPS raster tiles: https://tile.openstreetmap.org/{z}/{x}/{y}.png
  * 3. Clear, readable, permanent attribution: © OpenStreetMap contributors
  * 4. Identifiable SafeOrbit User-Agent and caching headers respected via OkHttp.
- * 5. Lifecycle-aware AndroidView integration.
+ * 5. Crash-proof Compose integration (zero infinite recomposition loops).
  * 6. Location markers only displayed for authorized circle members with active sharing consent.
- * 7. Graceful offline/fallback handling when tiles cannot be retrieved.
+ * 7. Graceful offline/hardware fallback ensuring the app never crashes or closes.
  */
 @Composable
 fun SafeOrbitMap(
@@ -86,42 +89,78 @@ fun SafeOrbitMap(
     userLatitude: Double? = null,
     userLongitude: Double? = null
 ) {
-    val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     var mapLibreMapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var isStyleReady by remember { mutableStateOf(false) }
     var tileLoadError by remember { mutableStateOf(false) }
+    var mapInitError by remember { mutableStateOf(false) }
+    var mapViewInstance by remember { mutableStateOf<MapView?>(null) }
 
-    val mapView = remember {
-        MapView(context).apply {
-            onCreate(null)
+    // If native MapLibre initialization failed on this device, fall back safely to Radar view
+    if (mapInitError) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(SafeOrbitNavy)
+                .border(1.dp, SafeOrbitBorder, RoundedCornerShape(20.dp))
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            RadarMapPlaceholder(isSimulating = isSharingActive)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Shield,
+                    contentDescription = null,
+                    tint = SafeOrbitTeal,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "SafeOrbit Privacy Guard Active • Consent-based Protection",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SafeOrbitMint
+                )
+            }
         }
+        return
     }
 
-    // Correctly handle Android MapView lifecycle
-    DisposableEffect(lifecycle, mapView) {
+    // Safely handle MapView lifecycle events
+    DisposableEffect(lifecycle, mapViewInstance) {
+        val currentMapView = mapViewInstance
         val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
-                else -> {}
+            try {
+                when (event) {
+                    Lifecycle.Event.ON_START -> currentMapView?.onStart()
+                    Lifecycle.Event.ON_RESUME -> currentMapView?.onResume()
+                    Lifecycle.Event.ON_PAUSE -> currentMapView?.onPause()
+                    Lifecycle.Event.ON_STOP -> currentMapView?.onStop()
+                    Lifecycle.Event.ON_DESTROY -> currentMapView?.onDestroy()
+                    else -> {}
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "MapView lifecycle event ${event.name} warning: ${t.message}")
             }
         }
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
             try {
-                mapView.onDestroy()
-            } catch (_: Exception) {}
+                currentMapView?.onDestroy()
+            } catch (t: Throwable) {
+                Log.w(TAG, "MapView onDestroy warning: ${t.message}")
+            }
         }
     }
 
-    // Synchronize markers when member locations or user location change
-    LaunchedEffect(mapLibreMapInstance, memberLocations, isSharingActive, userLatitude, userLongitude) {
-        val map = mapLibreMapInstance ?: return@LaunchedEffect
+    // Synchronize markers only when style is fully loaded and map instance exists
+    LaunchedEffect(isStyleReady, mapLibreMapInstance, memberLocations, isSharingActive, userLatitude, userLongitude) {
+        val map = mapLibreMapInstance
+        if (!isStyleReady || map == null) return@LaunchedEffect
+
         try {
             map.clear()
 
@@ -147,7 +186,9 @@ fun SafeOrbitMap(
                         .snippet("Consent Active • SafeOrbit Protection")
                 )
             }
-        } catch (_: Exception) {}
+        } catch (t: Throwable) {
+            Log.w(TAG, "Marker update handled: ${t.message}")
+        }
     }
 
     Box(
@@ -163,30 +204,49 @@ fun SafeOrbitMap(
             )
     ) {
         // MapLibre Native View via AndroidView
+        // Factory runs ONCE; update is empty to prevent infinite recomposition loops!
         AndroidView(
-            factory = { mapView },
-            modifier = Modifier.fillMaxSize()
-        ) { view ->
-            view.getMapAsync { map ->
-                mapLibreMapInstance = map
+            factory = { context ->
+                try {
+                    MapView(context).apply {
+                        onCreate(null)
+                        mapViewInstance = this
 
-                // Configure camera at initial default (or user location if available)
-                val initialLat = userLatitude ?: 20.5937
-                val initialLng = userLongitude ?: 78.9629
-                val initialZoom = if (userLatitude != null) 12.0 else 4.0
+                        getMapAsync { map ->
+                            mapLibreMapInstance = map
 
-                map.cameraPosition = CameraPosition.Builder()
-                    .target(LatLng(initialLat, initialLng))
-                    .zoom(initialZoom)
-                    .build()
+                            try {
+                                val initialLat = userLatitude ?: 20.5937
+                                val initialLng = userLongitude ?: 78.9629
+                                val initialZoom = if (userLatitude != null) 12.0 else 4.0
 
-                // Load OpenStreetMap raster tile style JSON
-                val styleJson = MapTileConfig.createStyleJson()
-                map.setStyle(Style.Builder().fromJson(styleJson)) {
-                    tileLoadError = false
+                                map.cameraPosition = CameraPosition.Builder()
+                                    .target(LatLng(initialLat, initialLng))
+                                    .zoom(initialZoom)
+                                    .build()
+
+                                val styleJson = MapTileConfig.createStyleJson()
+                                map.setStyle(Style.Builder().fromJson(styleJson)) {
+                                    isStyleReady = true
+                                    tileLoadError = false
+                                }
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "Map style setup error: ${t.message}")
+                                tileLoadError = true
+                            }
+                        }
+                    }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "Failed to instantiate MapView on this device: ${t.message}", t)
+                    mapInitError = true
+                    View(context)
                 }
-            }
-        }
+            },
+            update = {
+                // Kept empty intentionally to avoid infinite recomposition and Native Peer desync
+            },
+            modifier = Modifier.fillMaxSize()
+        )
 
         // ── Fallback Overlay When Offline / Tiles Cannot Load ──
         if (!isNetworkAvailable || tileLoadError) {
@@ -225,8 +285,10 @@ fun SafeOrbitMap(
         ) {
             SmallFloatingActionButton(
                 onClick = {
-                    mapLibreMapInstance?.let { map ->
-                        map.animateCamera(CameraUpdateFactory.zoomIn())
+                    try {
+                        mapLibreMapInstance?.animateCamera(CameraUpdateFactory.zoomIn())
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Zoom in error: ${t.message}")
                     }
                 },
                 containerColor = SafeOrbitNavy.copy(alpha = 0.9f),
@@ -241,8 +303,10 @@ fun SafeOrbitMap(
 
             SmallFloatingActionButton(
                 onClick = {
-                    mapLibreMapInstance?.let { map ->
-                        map.animateCamera(CameraUpdateFactory.zoomOut())
+                    try {
+                        mapLibreMapInstance?.animateCamera(CameraUpdateFactory.zoomOut())
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Zoom out error: ${t.message}")
                     }
                 },
                 containerColor = SafeOrbitNavy.copy(alpha = 0.9f),
@@ -277,9 +341,13 @@ fun SafeOrbitMap(
         if (isSharingActive && userLatitude != null && userLongitude != null) {
             SmallFloatingActionButton(
                 onClick = {
-                    mapLibreMapInstance?.animateCamera(
-                        CameraUpdateFactory.newLatLngZoom(LatLng(userLatitude, userLongitude), 14.0)
-                    )
+                    try {
+                        mapLibreMapInstance?.animateCamera(
+                            CameraUpdateFactory.newLatLngZoom(LatLng(userLatitude, userLongitude), 14.0)
+                        )
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Center camera error: ${t.message}")
+                    }
                 },
                 containerColor = SafeOrbitTeal,
                 contentColor = SafeOrbitDeepBackground,
