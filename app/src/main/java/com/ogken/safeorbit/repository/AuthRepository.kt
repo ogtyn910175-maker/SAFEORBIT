@@ -3,6 +3,7 @@ package com.ogken.safeorbit.repository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.ogken.safeorbit.model.User
 import kotlinx.coroutines.channels.awaitClose
@@ -21,6 +22,7 @@ interface AuthRepository {
     suspend fun signIn(email: String, password: String): Result<User>
     suspend fun signUp(email: String, password: String, displayName: String, role: String): Result<User>
     suspend fun signOut()
+    suspend fun deleteAccount(): Result<Unit>
     suspend fun sendPasswordReset(email: String): Result<Unit>
     fun validateEmail(email: String): String?
     fun validatePassword(password: String): String?
@@ -156,6 +158,47 @@ class FirebaseAuthRepository(
         auth.signOut()
     }
 
+    override suspend fun deleteAccount(): Result<Unit> {
+        val user = auth.currentUser ?: return Result.failure(IllegalStateException("No authenticated user"))
+        val uid = user.uid
+
+        return try {
+            // 1. Leave circle / clean up circle records if member of a circle
+            val userDoc = firestore.collection("users").document(uid).get().await()
+            val circleId = userDoc.getString("currentCircleId")
+            if (!circleId.isNullOrBlank()) {
+                try {
+                    // Delete location document
+                    firestore.collection("circles").document(circleId)
+                        .collection("locations").document(uid).delete().await()
+                } catch (_: Exception) {}
+
+                try {
+                    // Delete member document
+                    firestore.collection("circles").document(circleId)
+                        .collection("members").document(uid).delete().await()
+                } catch (_: Exception) {}
+
+                try {
+                    // Remove from circle memberIds
+                    firestore.collection("circles").document(circleId)
+                        .update("memberIds", FieldValue.arrayRemove(uid)).await()
+                } catch (_: Exception) {}
+            }
+
+            // 2. Delete user profile document
+            try {
+                firestore.collection("users").document(uid).delete().await()
+            } catch (_: Exception) {}
+
+            // 3. Delete Firebase Auth user
+            user.delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun sendPasswordReset(email: String): Result<Unit> {
         val emailError = validateEmail(email)
         if (emailError != null) return Result.failure(IllegalArgumentException(emailError))
@@ -240,6 +283,11 @@ class InMemoryAuthRepository : AuthRepository {
 
     override suspend fun signOut() {
         authFlow.value = null
+    }
+
+    override suspend fun deleteAccount(): Result<Unit> {
+        authFlow.value = null
+        return Result.success(Unit)
     }
 
     override suspend fun sendPasswordReset(email: String): Result<Unit> {

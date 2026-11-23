@@ -193,12 +193,20 @@ fun SafeOrbitMap(
             for (loc in memberLocations) {
                 if (!loc.isLive) continue
                 val memberName = members.find { it.id == loc.userId }?.name ?: "Family Member"
+                val elapsedMs = System.currentTimeMillis() - loc.timestamp
+                val timeAgoText = when {
+                    elapsedMs < 60_000L -> "Just now"
+                    elapsedMs < 3_600_000L -> "${elapsedMs / 60_000L}m ago"
+                    else -> "${elapsedMs / 3_600_000L}h ago"
+                }
+                val isStale = elapsedMs > 10 * 60_000L
                 val precisionLabel = if (loc.isApproximate) "Approximate Area" else "Live Location"
+                val statusSnippet = if (isStale) "Stale ($timeAgoText)" else "$precisionLabel • $timeAgoText"
                 map.addMarker(
                     MarkerOptions()
                         .position(LatLng(loc.latitude, loc.longitude))
                         .title(memberName)
-                        .snippet("$precisionLabel • Battery: ${loc.batteryPercent}%")
+                        .snippet("$statusSnippet • Battery: ${loc.batteryPercent}%")
                 )
             }
 
@@ -263,6 +271,35 @@ fun SafeOrbitMap(
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        // ── Active Sharers Status Chip ──
+        val liveCount = memberLocations.count { it.isLive } + (if (isSharingActive) 1 else 0)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(SafeOrbitDeepBackground.copy(alpha = 0.85f))
+                .border(0.8.dp, SafeOrbitBorder, RoundedCornerShape(6.dp))
+                .padding(horizontal = 7.dp, vertical = 3.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(if (liveCount > 0) SafeOrbitTeal else SafeOrbitSecondaryText)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = if (liveCount > 0) "$liveCount sharing live" else "No active sharers",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (liveCount > 0) SafeOrbitMint else SafeOrbitSecondaryText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
 
         // ── Fallback Overlay When Offline / Tiles Cannot Load ──
         if (!isNetworkAvailable || tileLoadError) {

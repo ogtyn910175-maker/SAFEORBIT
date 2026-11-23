@@ -667,5 +667,60 @@ describe('SafeOrbit Firestore Security & Privacy Rules Audit', () => {
           .collection('locations').doc('loc_member').delete()
       );
     });
+
+    it('allows circle owner to delete removed member location document', async () => {
+      // First setup a location record as admin
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').set({
+            userId: 'loc_member',
+            circleId: locCircleId,
+            latitude: 37.7749,
+            longitude: -122.4194,
+            accuracy: 10.0,
+            isLive: false,
+            isApproximate: false,
+            timestamp: Date.now(),
+            batteryPercent: 80
+          });
+      });
+
+      const owner = testEnv.authenticatedContext('loc_owner').firestore();
+      await assertSucceeds(
+        owner.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').delete()
+      );
+    });
+
+    it('denies non-owner member from deleting another member location document', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').set({
+            userId: 'loc_member',
+            circleId: locCircleId,
+            latitude: 37.7749,
+            longitude: -122.4194,
+            accuracy: 10.0,
+            isLive: false,
+            isApproximate: false,
+            timestamp: Date.now(),
+            batteryPercent: 80
+          });
+      });
+
+      const inactiveMember = testEnv.authenticatedContext('loc_inactive').firestore();
+      await assertFails(
+        inactiveMember.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').delete()
+      );
+    });
+
+    it('denies outsider from deleting member location document', async () => {
+      const outsider = testEnv.authenticatedContext('loc_outsider').firestore();
+      await assertFails(
+        outsider.collection('circles').doc(locCircleId)
+          .collection('locations').doc('loc_member').delete()
+      );
+    });
   });
 });

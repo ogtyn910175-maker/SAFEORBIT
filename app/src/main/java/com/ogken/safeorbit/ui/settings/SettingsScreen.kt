@@ -1,5 +1,6 @@
 package com.ogken.safeorbit.ui.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,19 +44,26 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ogken.safeorbit.theme.SafeOrbitBorder
 import com.ogken.safeorbit.theme.SafeOrbitDeepBackground
@@ -78,12 +88,70 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.feedbackMessage) {
+        uiState.feedbackMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearFeedback()
+        }
+    }
 
     if (uiState.isConsentDialogOpen) {
         LocationConsentDialog(
             onConfirmConsent = { viewModel.confirmConsentAndEnableSharing() },
             onDismissRequest = { viewModel.dismissConsentDialog() }
         )
+    }
+
+    if (showDeleteAccountDialog) {
+        Dialog(onDismissRequest = { showDeleteAccountDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = SafeOrbitSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, SafeOrbitBorder, RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.padding(22.dp)) {
+                    Text(
+                        text = "Delete Account & Data?",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = SafeOrbitStatusOffText
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "This action is permanent. Your user profile, circle memberships, and location records will be immediately erased. You will be signed out permanently.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SafeOrbitSecondaryText
+                    )
+                    Spacer(modifier = Modifier.height(22.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedButton(
+                            onClick = { showDeleteAccountDialog = false },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel", color = SafeOrbitSecondaryText)
+                        }
+                        Button(
+                            onClick = {
+                                showDeleteAccountDialog = false
+                                viewModel.deleteAccount(context = context, onDeleted = onNavigateToAuth)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SafeOrbitStatusOff),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Delete", color = SafeOrbitWhite, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -164,25 +232,62 @@ fun SettingsScreen(
                 }
             }
 
-            OutlinedButton(
-                onClick = { viewModel.signOut(onSignedOut = onNavigateToAuth) },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = SafeOrbitStatusOffText
-                ),
-                border = BorderStroke(1.dp, SafeOrbitStatusOff.copy(alpha = 0.5f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Logout,
-                    contentDescription = "Sign Out",
-                    tint = SafeOrbitStatusOffText,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
+                OutlinedButton(
+                    onClick = { viewModel.signOut(context = context, onSignedOut = onNavigateToAuth) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = SafeOrbitStatusOffText
+                    ),
+                    border = BorderStroke(1.dp, SafeOrbitStatusOff.copy(alpha = 0.5f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = "Sign Out",
+                        tint = SafeOrbitStatusOffText,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Sign Out",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SafeOrbitStatusOffText
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = { showDeleteAccountDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = SafeOrbitStatusOff
+                    ),
+                    border = BorderStroke(1.dp, SafeOrbitStatusOff.copy(alpha = 0.5f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteForever,
+                        contentDescription = "Delete Account",
+                        tint = SafeOrbitStatusOff,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Delete Data",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SafeOrbitStatusOff
+                    )
+                }
+            }
                     text = "Sign Out",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
@@ -297,7 +402,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Version 1.2.0 • Stage 3 Architecture (API 35)",
+                        text = "Version 1.2.0 • Release Candidate (API 26-35)",
                         style = MaterialTheme.typography.bodySmall,
                         color = SafeOrbitWhite
                     )
@@ -326,7 +431,7 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "• Stage 1: Foundation & Cloud Build CI [Completed]\n• Stage 2: Profile & Family Circle Interface [Completed]\n• Stage 3: Firebase Auth & Cloud Firestore Circles [Active]\n• Stage 4: Live Consent GPS & Real-time Location [Upcoming]",
+                                text = "• Stage 1: Foundation & Cloud Build CI [Completed]\n• Stage 2: Profile & Family Circle Interface [Completed]\n• Stage 3: Firebase Auth & Cloud Firestore Circles [Completed]\n• Stage 4: Live Consent GPS, MapLibre & Family Map [Completed]",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SafeOrbitWhite.copy(alpha = 0.8f)
                             )

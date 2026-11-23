@@ -202,8 +202,11 @@ service cloud.firestore {
             )
           );
 
-        // Delete allowed by the member themselves when stopping sharing
-        allow delete: if isAuthenticated() && request.auth.uid == userId;
+        // Delete allowed by the member themselves when stopping sharing or by circle owner when removing member
+        allow delete: if isAuthenticated() && (
+          request.auth.uid == userId ||
+          get(/databases/$(database)/documents/circles/$(circleId)).data.ownerId == request.auth.uid
+        );
       }
     }
 

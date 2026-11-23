@@ -273,6 +273,12 @@ class FirebaseFamilyCircleRepository(
             val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
             val circleId = userDoc.getString("currentCircleId") ?: return Result.success(true)
 
+            // Clean up any published location document upon leaving
+            try {
+                firestore.collection("circles").document(circleId)
+                    .collection("locations").document(currentUser.uid).delete().await()
+            } catch (_: Exception) {}
+
             // Remove member doc
             firestore.collection("circles").document(circleId)
                 .collection("members").document(currentUser.uid).delete().await()
@@ -303,6 +309,12 @@ class FirebaseFamilyCircleRepository(
             if (ownerId != currentUser.uid) {
                 return Result.failure(SecurityException("Only the circle owner can remove members."))
             }
+
+            // Clean up target member's published location document upon removal
+            try {
+                firestore.collection("circles").document(circleId)
+                    .collection("locations").document(memberId).delete().await()
+            } catch (_: Exception) {}
 
             // Remove target member from circle
             firestore.collection("circles").document(circleId)

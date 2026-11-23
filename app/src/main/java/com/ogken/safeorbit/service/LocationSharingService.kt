@@ -87,9 +87,17 @@ class LocationSharingService : Service() {
                 ) == PackageManager.PERMISSION_GRANTED
                 isPreciseLocation = fineGranted
 
-                // Start Foreground with ongoing notification
+                // Start Foreground with ongoing notification and explicit location foreground service type
                 val notification = buildOngoingNotification(currentCircleName)
-                startForeground(NOTIFICATION_ID, notification)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notification,
+                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    )
+                } else {
+                    startForeground(NOTIFICATION_ID, notification)
+                }
 
                 // Sync repository state
                 InMemoryLocationSharingRepository.instance.startSharingWithConsent(consentAcknowledged = true)

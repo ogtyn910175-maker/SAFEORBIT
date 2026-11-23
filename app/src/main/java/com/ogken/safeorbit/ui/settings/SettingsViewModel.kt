@@ -80,10 +80,31 @@ class SettingsViewModel(
         _uiState.update { it.copy(feedbackMessage = null) }
     }
 
-    fun signOut(onSignedOut: () -> Unit) {
+    fun signOut(context: Context, onSignedOut: () -> Unit) {
         viewModelScope.launch {
+            try {
+                LocationSharingService.stop(context)
+            } catch (_: Exception) {}
+            locationSharingRepository.stopSharing()
             authRepository.signOut()
             onSignedOut()
+        }
+    }
+
+    fun deleteAccount(context: Context, onDeleted: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                LocationSharingService.stop(context)
+            } catch (_: Exception) {}
+            locationSharingRepository.stopSharing()
+            val result = authRepository.deleteAccount()
+            if (result.isSuccess) {
+                onDeleted()
+            } else {
+                _uiState.update {
+                    it.copy(feedbackMessage = "Account deletion error: ${result.exceptionOrNull()?.message ?: "Please re-authenticate and try again."}")
+                }
+            }
         }
     }
 }
