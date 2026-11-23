@@ -33,6 +33,46 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || yes | sdkmanager --licenses || true
           echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
 
+      - name: Configure Google Services for Build
+        run: |
+          if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+            echo "Injecting GOOGLE_SERVICES_JSON from GitHub Secrets..."
+            echo "${{ secrets.GOOGLE_SERVICES_JSON }}" > app/google-services.json
+          elif [ ! -f "app/google-services.json" ]; then
+            echo "Generating CI build configuration for com.ogken.safeorbit..."
+            cat << 'EOF' > app/google-services.json
+          {
+            "project_info": {
+              "project_number": "123456789012",
+              "project_id": "safeorbit-ci",
+              "storage_bucket": "safeorbit-ci.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789012:android:abcdef0123456789",
+                  "android_client_info": {
+                    "package_name": "com.ogken.safeorbit"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyCiPlaceholderKeyForSafeOrbitCiBuildOnly"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+          fi
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
@@ -48,7 +88,7 @@ jobs:
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SafeOrbit-Debug-APK
+          name: SafeOrbit-Stage3-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14

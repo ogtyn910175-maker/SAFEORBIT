@@ -125,7 +125,7 @@ fun WelcomeScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Set Up Profile & Get Started",
+                    text = "Sign In / Create Account",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

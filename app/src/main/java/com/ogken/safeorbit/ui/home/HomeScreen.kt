@@ -205,7 +205,7 @@ fun HomeScreen(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "Stage 2 UI",
+                        text = "Stage 3",
                         style = MaterialTheme.typography.labelSmall,
                         color = SafeOrbitMint,
                         fontWeight = FontWeight.Bold
@@ -236,7 +236,7 @@ fun HomeScreen(
                     color = SafeOrbitWhite
                 )
                 Text(
-                    text = if (uiState.sharingState.isSharingActive) "Simulation Active" else "Stage 2 Standby",
+                    text = if (uiState.sharingState.isSharingActive) "Simulation Active" else "Consent Guard Active",
                     style = MaterialTheme.typography.labelSmall,
                     color = SafeOrbitMint
                 )

@@ -1,5 +1,6 @@
 package com.ogken.safeorbit.ui.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
@@ -30,12 +32,14 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -68,6 +72,7 @@ import com.ogken.safeorbit.ui.components.LocationConsentDialog
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateProfileSettings: () -> Unit,
+    onNavigateToAuth: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel()
 ) {
@@ -156,6 +161,32 @@ fun SettingsScreen(
                         modifier = Modifier.size(20.dp)
                     )
                 }
+            }
+
+            OutlinedButton(
+                onClick = { viewModel.signOut(onSignedOut = onNavigateToAuth) },
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = SafeOrbitStatusOffText
+                ),
+                border = BorderStroke(1.dp, SafeOrbitStatusOff.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = "Sign Out",
+                    tint = SafeOrbitStatusOffText,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Sign Out",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = SafeOrbitStatusOffText
+                )
             }
 
             // 2. Location Sharing Controls UI
@@ -265,7 +296,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Version 1.1.0 • Stage 2 Architecture (API 35)",
+                        text = "Version 1.2.0 • Stage 3 Architecture (API 35)",
                         style = MaterialTheme.typography.bodySmall,
                         color = SafeOrbitWhite
                     )
@@ -294,7 +325,7 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "• Stage 1: Foundation & Cloud Build CI [Completed]\n• Stage 2: Profile & Family Circle Interface [Active]\n• Stage 3: Firebase Auth & Google Maps GPS [Upcoming]",
+                                text = "• Stage 1: Foundation & Cloud Build CI [Completed]\n• Stage 2: Profile & Family Circle Interface [Completed]\n• Stage 3: Firebase Auth & Cloud Firestore Circles [Active]\n• Stage 4: Live Consent GPS & Real-time Location [Upcoming]",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SafeOrbitWhite.copy(alpha = 0.8f)
                             )

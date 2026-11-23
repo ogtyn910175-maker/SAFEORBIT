@@ -24,11 +24,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Battery5Bar
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,8 +39,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,7 +53,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -85,16 +83,86 @@ fun CircleMembersScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    var showAddMemberDialog by remember { mutableStateOf(false) }
+    var showLeaveDialog by remember { mutableStateOf(false) }
+    var memberToRemove by remember { mutableStateOf<CircleMember?>(null) }
 
-    if (showAddMemberDialog) {
-        AddMemberDialog(
-            onDismiss = { showAddMemberDialog = false },
-            onAdd = { name, role ->
-                viewModel.addDemoMember(name, role)
-                showAddMemberDialog = false
+    val isCurrentUserOwner = uiState.members.any { it.isCurrentUser && it.role.contains("Owner", ignoreCase = true) }
+
+    if (showLeaveDialog) {
+        Dialog(onDismissRequest = { showLeaveDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = SafeOrbitSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, SafeOrbitBorder, RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("Leave Circle?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SafeOrbitWhite)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Are you sure you want to leave '${uiState.circle.name}'? You will need an invite code to rejoin.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SafeOrbitSecondaryText
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = { showLeaveDialog = false }, modifier = Modifier.weight(1f)) {
+                            Text("Cancel", color = SafeOrbitSecondaryText)
+                        }
+                        Button(
+                            onClick = {
+                                showLeaveDialog = false
+                                viewModel.leaveCircle(onSuccess = onNavigateBack)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SafeOrbitStatusOff),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Leave", color = SafeOrbitWhite, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
-        )
+        }
+    }
+
+    if (memberToRemove != null) {
+        val target = memberToRemove!!
+        Dialog(onDismissRequest = { memberToRemove = null }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = SafeOrbitSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, SafeOrbitBorder, RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("Remove Member", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SafeOrbitWhite)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Remove '${target.name}' from '${uiState.circle.name}'?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SafeOrbitSecondaryText
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = { memberToRemove = null }, modifier = Modifier.weight(1f)) {
+                            Text("Cancel", color = SafeOrbitSecondaryText)
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.removeMember(target.id)
+                                memberToRemove = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SafeOrbitStatusOff),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Remove", color = SafeOrbitWhite, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -107,8 +175,10 @@ fun CircleMembersScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showAddMemberDialog = true }) {
-                        Icon(imageVector = Icons.Default.PersonAdd, contentDescription = "Add Member", tint = SafeOrbitTeal)
+                    if (uiState.circle.id.isNotBlank()) {
+                        IconButton(onClick = { showLeaveDialog = true }) {
+                            Icon(imageVector = Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Leave Circle", tint = SafeOrbitStatusOff)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SafeOrbitDeepBackground)
@@ -125,16 +195,18 @@ fun CircleMembersScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Invite Code Banner
-            item {
-                InviteCodeCard(
-                    inviteCode = uiState.circle.inviteCode,
-                    onCopyCode = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("SafeOrbit Invite Code", uiState.circle.inviteCode)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "Invite code copied to clipboard!", Toast.LENGTH_SHORT).show()
-                    }
-                )
+            if (uiState.circle.inviteCode.isNotBlank()) {
+                item {
+                    InviteCodeCard(
+                        inviteCode = uiState.circle.inviteCode,
+                        onCopyCode = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("SafeOrbit Invite Code", uiState.circle.inviteCode)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "Invite code copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
             }
 
             // Quick actions: Create new or join other circle
@@ -175,7 +247,7 @@ fun CircleMembersScreen(
                         color = SafeOrbitWhite
                     )
                     Text(
-                        text = "Stage 2 Local Demo",
+                        text = "Cloud Sync Active",
                         style = MaterialTheme.typography.labelSmall,
                         color = SafeOrbitMint
                     )
@@ -184,23 +256,33 @@ fun CircleMembersScreen(
 
             // Member list items
             items(uiState.members) { member ->
-                MemberCard(member = member)
+                MemberCard(
+                    member = member,
+                    canRemove = isCurrentUserOwner && !member.isCurrentUser,
+                    onRemoveClick = { memberToRemove = member }
+                )
             }
 
-            // Notice
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(SafeOrbitNavy.copy(alpha = 0.5f))
-                        .padding(14.dp)
-                ) {
-                    Text(
-                        text = "Safety Note: In Stage 2, members are simulated for UI flow demonstration. Live GPS transmission remains inactive until explicit consent in Stage 3.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SafeOrbitSecondaryText
-                    )
+            // Error feedback
+            if (uiState.errorMessage != null) {
+                item {
+                    Text(text = uiState.errorMessage ?: "", color = SafeOrbitStatusOff, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            // Leave Circle Button
+            if (uiState.circle.id.isNotBlank()) {
+                item {
+                    OutlinedButton(
+                        onClick = { showLeaveDialog = true },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SafeOrbitStatusOff),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Leave This Circle")
+                    }
                 }
             }
         }
@@ -238,7 +320,7 @@ private fun InviteCodeCard(
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "Shareable",
+                        text = "Valid 48h",
                         style = MaterialTheme.typography.labelSmall,
                         color = SafeOrbitMint
                     )
@@ -287,7 +369,11 @@ private fun InviteCodeCard(
 }
 
 @Composable
-private fun MemberCard(member: CircleMember) {
+private fun MemberCard(
+    member: CircleMember,
+    canRemove: Boolean = false,
+    onRemoveClick: () -> Unit = {}
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = SafeOrbitSurface),
         shape = RoundedCornerShape(16.dp),
@@ -341,115 +427,44 @@ private fun MemberCard(member: CircleMember) {
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = member.statusText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SafeOrbitSecondaryText
-                    )
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Battery5Bar,
-                        contentDescription = "Battery",
-                        tint = SafeOrbitTeal,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(2.dp))
-                    Text(
-                        text = "${member.batteryPercent}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SafeOrbitWhite
-                    )
-                }
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = member.lastSeenText,
-                    style = MaterialTheme.typography.labelSmall,
+                    text = member.statusText,
+                    style = MaterialTheme.typography.bodySmall,
                     color = SafeOrbitSecondaryText
                 )
             }
-        }
-    }
-}
 
-@Composable
-private fun AddMemberDialog(
-    onDismiss: () -> Unit,
-    onAdd: (name: String, role: String) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf("Family Member") }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = SafeOrbitSurface,
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, SafeOrbitBorder, RoundedCornerShape(20.dp))
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "Add Demo Member",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = SafeOrbitWhite
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Member Name") },
-                    placeholder = { Text("e.g. Grandma, Alex") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SafeOrbitTeal,
-                        unfocusedBorderColor = SafeOrbitBorder,
-                        focusedTextColor = SafeOrbitWhite,
-                        unfocusedTextColor = SafeOrbitWhite
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = role,
-                    onValueChange = { role = it },
-                    label = { Text("Role") },
-                    placeholder = { Text("e.g. Parent, Child, Guardian") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SafeOrbitTeal,
-                        unfocusedBorderColor = SafeOrbitBorder,
-                        focusedTextColor = SafeOrbitWhite,
-                        unfocusedTextColor = SafeOrbitWhite
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                        Text("Cancel", color = SafeOrbitSecondaryText)
+            if (canRemove) {
+                IconButton(onClick = onRemoveClick) {
+                    Icon(
+                        imageVector = Icons.Default.PersonRemove,
+                        contentDescription = "Remove member",
+                        tint = SafeOrbitStatusOff,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else {
+                Column(horizontalAlignment = Alignment.End) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Battery5Bar,
+                            contentDescription = "Battery",
+                            tint = SafeOrbitTeal,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = "${member.batteryPercent}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SafeOrbitWhite
+                        )
                     }
-                    Button(
-                        onClick = { if (name.isNotBlank()) onAdd(name, role) },
-                        colors = ButtonDefaults.buttonColors(containerColor = SafeOrbitTeal),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Add", color = SafeOrbitDeepBackground, fontWeight = FontWeight.Bold)
-                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = member.lastSeenText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SafeOrbitSecondaryText
+                    )
                 }
             }
         }

@@ -7,9 +7,9 @@ import com.ogken.safeorbit.model.CircleMember
 import com.ogken.safeorbit.model.LocationSharingState
 import com.ogken.safeorbit.model.User
 import com.ogken.safeorbit.repository.FamilyCircleRepository
-import com.ogken.safeorbit.repository.InMemoryFamilyCircleRepository
+import com.ogken.safeorbit.repository.FirebaseFamilyCircleRepository
+import com.ogken.safeorbit.repository.FirebaseUserRepository
 import com.ogken.safeorbit.repository.InMemoryLocationSharingRepository
-import com.ogken.safeorbit.repository.InMemoryUserRepository
 import com.ogken.safeorbit.repository.LocationSharingRepository
 import com.ogken.safeorbit.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,8 +30,8 @@ data class HomeUiState(
 )
 
 class HomeViewModel(
-    private val userRepository: UserRepository = InMemoryUserRepository.instance,
-    private val familyCircleRepository: FamilyCircleRepository = InMemoryFamilyCircleRepository.instance,
+    private val userRepository: UserRepository = FirebaseUserRepository.instance,
+    private val familyCircleRepository: FamilyCircleRepository = FirebaseFamilyCircleRepository.instance,
     private val locationSharingRepository: LocationSharingRepository = InMemoryLocationSharingRepository.instance,
     private val getOrbitCircleUseCase: GetOrbitCircleUseCase = GetOrbitCircleUseCase(familyCircleRepository)
 ) : ViewModel() {

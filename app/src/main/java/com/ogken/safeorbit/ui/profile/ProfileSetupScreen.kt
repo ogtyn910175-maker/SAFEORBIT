@@ -248,22 +248,29 @@ fun ProfileSetupScreen(
             // Save Button
             Button(
                 onClick = {
-                    if (viewModel.saveProfile()) {
-                        onProfileSaved()
-                    }
+                    viewModel.saveProfile(onSuccess = onProfileSaved)
                 },
+                enabled = !uiState.isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = SafeOrbitTeal),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
             ) {
-                Text(
-                    text = "Save Profile",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = SafeOrbitDeepBackground
-                )
+                if (uiState.isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = SafeOrbitDeepBackground,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Save Profile",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SafeOrbitDeepBackground
+                    )
+                }
             }
         }
     }

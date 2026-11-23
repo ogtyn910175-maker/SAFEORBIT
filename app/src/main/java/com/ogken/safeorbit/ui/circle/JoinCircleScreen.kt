@@ -204,22 +204,29 @@ fun JoinCircleScreen(
 
             Button(
                 onClick = {
-                    if (viewModel.joinCircle()) {
-                        onCircleJoined()
-                    }
+                    viewModel.joinCircle(onSuccess = onCircleJoined)
                 },
+                enabled = !uiState.isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = SafeOrbitTeal),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
             ) {
-                Text(
-                    text = "Join Circle",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = SafeOrbitDeepBackground
-                )
+                if (uiState.isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = SafeOrbitDeepBackground,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Join Circle",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SafeOrbitDeepBackground
+                    )
+                }
             }
         }
     }

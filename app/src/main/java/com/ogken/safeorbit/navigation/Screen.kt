@@ -5,6 +5,7 @@ package com.ogken.safeorbit.navigation
  */
 sealed class Screen(val route: String) {
     data object Welcome : Screen("welcome")
+    data object Auth : Screen("auth")
     data object Home : Screen("home")
     data object ProfileSetup : Screen("profile_setup")
     data object ProfileSettings : Screen("profile_settings")

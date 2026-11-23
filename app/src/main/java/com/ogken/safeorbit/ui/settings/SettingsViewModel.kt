@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ogken.safeorbit.model.LocationSharingState
 import com.ogken.safeorbit.model.User
+import com.ogken.safeorbit.repository.AuthRepository
+import com.ogken.safeorbit.repository.FirebaseAuthRepository
+import com.ogken.safeorbit.repository.FirebaseUserRepository
 import com.ogken.safeorbit.repository.InMemoryLocationSharingRepository
-import com.ogken.safeorbit.repository.InMemoryUserRepository
 import com.ogken.safeorbit.repository.LocationSharingRepository
 import com.ogken.safeorbit.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val user: User = User(),
@@ -23,7 +26,8 @@ data class SettingsUiState(
 )
 
 class SettingsViewModel(
-    private val userRepository: UserRepository = InMemoryUserRepository.instance,
+    private val userRepository: UserRepository = FirebaseUserRepository.instance,
+    private val authRepository: AuthRepository = FirebaseAuthRepository.instance,
     private val locationSharingRepository: LocationSharingRepository = InMemoryLocationSharingRepository.instance
 ) : ViewModel() {
 
@@ -50,7 +54,7 @@ class SettingsViewModel(
         _uiState.update {
             it.copy(
                 isConsentDialogOpen = false,
-                feedbackMessage = "Location sharing simulation enabled. In Stage 3, coordinates will be sent only with active consent."
+                feedbackMessage = "Location sharing simulation enabled. In Stage 4, coordinates will be sent only with active consent."
             )
         }
     }
@@ -71,5 +75,12 @@ class SettingsViewModel(
 
     fun clearFeedback() {
         _uiState.update { it.copy(feedbackMessage = null) }
+    }
+
+    fun signOut(onSignedOut: () -> Unit) {
+        viewModelScope.launch {
+            authRepository.signOut()
+            onSignedOut()
+        }
     }
 }

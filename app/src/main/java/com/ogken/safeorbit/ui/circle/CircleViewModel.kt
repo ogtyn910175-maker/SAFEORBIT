@@ -5,13 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.ogken.safeorbit.model.CircleMember
 import com.ogken.safeorbit.model.FamilyCircle
 import com.ogken.safeorbit.repository.FamilyCircleRepository
-import com.ogken.safeorbit.repository.InMemoryFamilyCircleRepository
+import com.ogken.safeorbit.repository.FirebaseFamilyCircleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class CircleUiState(
     val circle: FamilyCircle = FamilyCircle(),
@@ -21,12 +22,13 @@ data class CircleUiState(
     val createNameError: String? = null,
     val joinCodeInput: String = "",
     val joinCodeError: String? = null,
+    val isLoading: Boolean = false,
     val successMessage: String? = null,
     val errorMessage: String? = null
 )
 
 class CircleViewModel(
-    private val circleRepository: FamilyCircleRepository = InMemoryFamilyCircleRepository.instance
+    private val circleRepository: FamilyCircleRepository = FirebaseFamilyCircleRepository.instance
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CircleUiState())
@@ -54,33 +56,39 @@ class CircleViewModel(
         _uiState.update { it.copy(createDescInput = desc) }
     }
 
-    fun createCircle(): Boolean {
+    fun createCircle(onSuccess: () -> Unit = {}) {
         val validation = circleRepository.validateCircleName(_uiState.value.createNameInput)
         if (validation != null) {
             _uiState.update { it.copy(createNameError = validation) }
-            return false
+            return
         }
 
-        val result = circleRepository.createCircle(
-            name = _uiState.value.createNameInput,
-            description = _uiState.value.createDescInput
-        )
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            val result = circleRepository.createCircle(
+                name = _uiState.value.createNameInput,
+                description = _uiState.value.createDescInput
+            )
 
-        return if (result.isSuccess) {
-            _uiState.update {
-                it.copy(
-                    createNameInput = "",
-                    createDescInput = "",
-                    createNameError = null,
-                    successMessage = "Circle '${result.getOrNull()?.name}' created successfully! Share your invite code to add members."
-                )
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        createNameInput = "",
+                        createDescInput = "",
+                        createNameError = null,
+                        successMessage = "Circle '${result.getOrNull()?.name}' created successfully!"
+                    )
+                }
+                onSuccess()
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to create circle"
+                    )
+                }
             }
-            true
-        } else {
-            _uiState.update {
-                it.copy(errorMessage = result.exceptionOrNull()?.message ?: "Failed to create circle")
-            }
-            false
         }
     }
 
@@ -97,43 +105,57 @@ class CircleViewModel(
         }
     }
 
-    fun joinCircle(): Boolean {
+    fun joinCircle(onSuccess: () -> Unit = {}) {
         val validation = circleRepository.validateInviteCode(_uiState.value.joinCodeInput)
         if (validation != null) {
             _uiState.update { it.copy(joinCodeError = validation) }
-            return false
+            return
         }
 
-        val result = circleRepository.joinCircle(_uiState.value.joinCodeInput)
-        return if (result.isSuccess) {
-            _uiState.update {
-                it.copy(
-                    joinCodeInput = "",
-                    joinCodeError = null,
-                    successMessage = "Successfully connected to circle! (Demo Simulation)"
-                )
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            val result = circleRepository.joinCircle(_uiState.value.joinCodeInput)
+
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        joinCodeInput = "",
+                        joinCodeError = null,
+                        successMessage = "Successfully connected to circle!"
+                    )
+                }
+                onSuccess()
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Invalid or expired invite code"
+                    )
+                }
             }
-            true
-        } else {
-            _uiState.update {
-                it.copy(errorMessage = result.exceptionOrNull()?.message ?: "Invalid invite code")
-            }
-            false
         }
     }
 
-    fun addDemoMember(name: String, role: String): Boolean {
-        val result = circleRepository.addDemoMember(name, role)
-        return if (result.isSuccess) {
-            _uiState.update {
-                it.copy(successMessage = "Demo member '${name}' added to your circle!")
+    fun leaveCircle(onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = circleRepository.leaveCircle()
+            _uiState.update { it.copy(isLoading = false) }
+            if (result.isSuccess) {
+                onSuccess()
+            } else {
+                _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to leave circle") }
             }
-            true
-        } else {
-            _uiState.update {
-                it.copy(errorMessage = result.exceptionOrNull()?.message ?: "Failed to add member")
+        }
+    }
+
+    fun removeMember(memberId: String) {
+        viewModelScope.launch {
+            val result = circleRepository.removeMember(memberId)
+            if (!result.isSuccess) {
+                _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to remove member") }
             }
-            false
         }
     }
 

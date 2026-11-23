@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profiles: users/{userId}
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Allow user to write their own profile, or allow updating currentCircleId
+      allow create: if isUser(userId);
+      allow update: if isUser(userId) || (
+        isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentCircleId'])
+      );
+      allow delete: if isUser(userId);
+    }
+
+    // Family circles: circles/{circleId}
+    match /circles/{circleId} {
+      // Read allowed if authenticated and part of the circle or owner
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        resource.data.ownerId == request.auth.uid ||
+        (resource.data.memberIds != null && request.auth.uid in resource.data.memberIds)
+      );
+
+      // Create allowed if authenticated and sets self as owner
+      allow create: if isAuthenticated() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.auth.uid in request.resource.data.memberIds;
+
+      // Update allowed by owner, or when joining/leaving (modifying memberIds)
+      allow update: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
+      );
+
+      // Delete allowed only by circle owner
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+
+      // Circle members subcollection: circles/{circleId}/members/{memberId}
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        // Allow a member to manage their own card, or circle owner to remove/update
+        allow write: if isAuthenticated() && (
+          request.auth.uid == memberId ||
+          get(/databases/$(database)/documents/circles/$(circleId)).data.ownerId == request.auth.uid
+        );
+      }
+    }
+
+    // Invite codes: invites/{code}
+    match /invites/{code} {
+      // Any authenticated user can read an invite to look up the circle
+      allow read: if isAuthenticated();
+      // Only circle members/creators can create invite codes
+      allow create: if isAuthenticated() && request.resource.data.createdBy == request.auth.uid;
+      // Invite creator or circle owner can update or delete
+      allow update, delete: if isAuthenticated() && (
+        resource.data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/circles/$(resource.data.circleId)).data.ownerId == request.auth.uid
+      );
+    }
+  }
+}
